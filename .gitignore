@@ -1,0 +1,13 @@
+# build
+*.exe
+build/
+
+# SDL runtime
+third_party/bin/*.dll
+
+# editor
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
