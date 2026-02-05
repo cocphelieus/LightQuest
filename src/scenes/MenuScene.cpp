@@ -73,17 +73,18 @@ bool MenuScene::load(SDL_Renderer* renderer) {
     }
 
     // Create Yes / No buttons for quit overlay (use btn_co / btn_khong)
-    const int qBtnW = 160;
-    const int qBtnH = 64;
-    const int qSpacing = 40;
+    // Position Yes/No buttons: increase separation and lower them closer to bottom
+    const int qBtnW = 140;
+    const int qBtnH = 100;
+    const int qSpacing = 180; // larger gap between buttons
     int qCenterX = screenWidth / 2;
-    int qY = screenHeight - 180; // place above bottom
+    int qY = screenHeight - 160; // place lower (closer to bottom)
     // Yes button left
-    overlayYesButton = std::make_unique<Button>(qCenterX - qBtnW - qSpacing/2, qY, qBtnW, qBtnH,
+    overlayYesButton = std::make_unique<Button>(qCenterX - qBtnW - qSpacing / 2, qY, qBtnW, qBtnH,
                                                 "assets/images/button/btn_co.bmp");
     if (!overlayYesButton->load(renderer)) { SDL_Log("Failed to load yes button"); overlayYesButton.reset(); }
     // No button right
-    overlayNoButton = std::make_unique<Button>(qCenterX + qSpacing/2, qY, qBtnW, qBtnH,
+    overlayNoButton = std::make_unique<Button>(qCenterX + qSpacing / 2, qY, qBtnW, qBtnH,
                                                "assets/images/button/btn_khong.bmp");
     if (!overlayNoButton->load(renderer)) { SDL_Log("Failed to load no button"); overlayNoButton.reset(); }
 
