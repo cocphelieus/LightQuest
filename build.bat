@@ -4,7 +4,9 @@ g++ ^
 src/main.cpp ^
 src/core/Game.cpp ^
 src/core/Window.cpp ^
+src/core/Button.cpp ^
 src/scenes/MenuScene.cpp ^
+src/scenes/LoadingScene.cpp ^
 -Ithird_party/include ^
 -Lthird_party/lib ^
 -lmingw32 ^
