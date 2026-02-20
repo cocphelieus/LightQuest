@@ -1,5 +1,7 @@
 #include "LoadingScene.h"
 #include <cmath>
+#include <SDL2/SDL_image.h>
+
 
 LoadingScene::LoadingScene() = default;
 
@@ -9,22 +11,17 @@ LoadingScene::~LoadingScene() {
 
 bool LoadingScene::load(SDL_Renderer* renderer) {
     this->renderer = renderer;
-    
-    SDL_Surface* surface = SDL_LoadBMP("assets/images/background/main_menu_bg.bmp");
-    
-    if (!surface) {
-        SDL_Log("Warning: Could not load loading screen background: %s", SDL_GetError());
-    } else {
-        backgroundTexture = SDL_CreateTextureFromSurface(renderer, surface);
-        SDL_FreeSurface(surface);
-        
-        if (!backgroundTexture) {
-            SDL_Log("Warning: Could not create texture: %s", SDL_GetError());
-        }
+
+    // Load PNG background using SDL_image
+    backgroundTexture = IMG_LoadTexture(renderer, "assets/images/background/menu.png");
+
+    if (!backgroundTexture) {
+        SDL_Log("Warning: Could not load loading screen background: %s", IMG_GetError());
     }
-    
+
     progress = 0.0f;
     elapsedTime = 0.0f;
+
     return true;
 }
 

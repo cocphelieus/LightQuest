@@ -12,7 +12,7 @@ MenuScene::~MenuScene() {
 
 bool MenuScene::load(SDL_Renderer* renderer) {
     // Load background
-    SDL_Surface* surface = SDL_LoadBMP("assets/images/background/main_menu_bg.bmp");
+    SDL_Surface* surface = SDL_LoadBMP("assets/images/background/menu.bmp");
     
     if (!surface) {
         SDL_Log("Failed to load menu background: %s", SDL_GetError());
@@ -37,20 +37,20 @@ bool MenuScene::load(SDL_Renderer* renderer) {
     }
 
     // Load overlay images (story, guide, rank) - if missing, logs will show
-    SDL_Surface* s = SDL_LoadBMP("assets/images/background/story_bg.bmp");
+    SDL_Surface* s = SDL_LoadBMP("assets/images/background/story.bmp");
     if (s) { storyTexture = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
     else SDL_Log("story overlay not found: %s", SDL_GetError());
 
     // try to load optional second page for story (story_bg_2.bmp)
-    s = SDL_LoadBMP("assets/images/background/story_bg_2.bmp");
+    s = SDL_LoadBMP("assets/images/background/story.bmp");
     if (s) { storyTexture2 = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
 
-    s = SDL_LoadBMP("assets/images/background/guide_bg.bmp");
+    s = SDL_LoadBMP("assets/images/background/guide.bmp");
     if (s) { guideTexture = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
     else SDL_Log("guide overlay not found: %s", SDL_GetError());
 
     // try to load optional second page for guide (guide_bg_2.bmp)
-    s = SDL_LoadBMP("assets/images/background/guide_bg_2.bmp");
+    s = SDL_LoadBMP("assets/images/background/guide.bmp");
     if (s) { guideTexture2 = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
 
     s = SDL_LoadBMP("assets/images/background/rank.bmp");
@@ -58,7 +58,7 @@ bool MenuScene::load(SDL_Renderer* renderer) {
     else SDL_Log("rank overlay not found: %s", SDL_GetError());
 
     // load quit confirmation background
-    s = SDL_LoadBMP("assets/images/background/quit_bg.bmp");
+    s = SDL_LoadBMP("assets/images/background/quit.bmp");
     if (s) { quitTexture = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
     else SDL_Log("quit overlay not found: %s", SDL_GetError());
 
