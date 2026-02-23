@@ -1,4 +1,5 @@
 #include "MenuScene.h"
+#include <SDL2/SDL_image.h>
 
 // Add file-scope cursor handles
 static SDL_Cursor* gArrowCursor = nullptr;
@@ -11,23 +12,20 @@ MenuScene::~MenuScene() {
 }
 
 bool MenuScene::load(SDL_Renderer* renderer) {
-    // Load background
-    SDL_Surface* surface = SDL_LoadBMP("assets/images/background/main_menu_bg.bmp");
-    
-    if (!surface) {
-        SDL_Log("Failed to load menu background: %s", SDL_GetError());
-        return false;
-    }
-    
-    backgroundTexture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    
+
+    // =========================
+    // Load background (PNG)
+    // =========================
+    backgroundTexture = IMG_LoadTexture(renderer, "assets/images/background/menu.png");
+
     if (!backgroundTexture) {
-        SDL_Log("Failed to create background texture: %s", SDL_GetError());
+        SDL_Log("Failed to load menu background: %s", IMG_GetError());
         return false;
     }
-    
-    // Initialize and load buttons
+
+    // =========================
+    // Initialize buttons
+    // =========================
     initializeButtons();
     for (auto& button : buttons) {
         if (!button->load(renderer)) {
@@ -36,95 +34,123 @@ bool MenuScene::load(SDL_Renderer* renderer) {
         }
     }
 
-    // Load overlay images (story, guide, rank) - if missing, logs will show
-    SDL_Surface* s = SDL_LoadBMP("assets/images/background/story_bg.bmp");
-    if (s) { storyTexture = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
-    else SDL_Log("story overlay not found: %s", SDL_GetError());
+    // =========================
+    // Load overlay textures (PNG)
+    // =========================
+    storyTexture  = IMG_LoadTexture(renderer, "assets/images/background/story.png");
+    storyTexture2 = IMG_LoadTexture(renderer, "assets/images/background/story2.png");
 
-    // try to load optional second page for story (story_bg_2.bmp)
-    s = SDL_LoadBMP("assets/images/background/story_bg_2.bmp");
-    if (s) { storyTexture2 = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
+    guideTexture  = IMG_LoadTexture(renderer, "assets/images/background/guide.png");
+    guideTexture2 = IMG_LoadTexture(renderer, "assets/images/background/guide2.png");
 
-    s = SDL_LoadBMP("assets/images/background/guide_bg.bmp");
-    if (s) { guideTexture = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
-    else SDL_Log("guide overlay not found: %s", SDL_GetError());
+    rankTexture = IMG_LoadTexture(renderer, "assets/images/background/rank.png");
+    quitTexture = IMG_LoadTexture(renderer, "assets/images/background/quit.png");
 
-    // try to load optional second page for guide (guide_bg_2.bmp)
-    s = SDL_LoadBMP("assets/images/background/guide_bg_2.bmp");
-    if (s) { guideTexture2 = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
+    // Optional logs
+    if (!storyTexture) SDL_Log("Story texture missing: %s", IMG_GetError());
+    if (!guideTexture) SDL_Log("Guide texture missing: %s", IMG_GetError());
+    if (!rankTexture)  SDL_Log("Rank texture missing: %s", IMG_GetError());
+    if (!quitTexture)  SDL_Log("Quit texture missing: %s", IMG_GetError());
 
-    s = SDL_LoadBMP("assets/images/background/rank.bmp");
-    if (s) { rankTexture = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
-    else SDL_Log("rank overlay not found: %s", SDL_GetError());
+    // =========================
+    // Overlay close button
+    // =========================
+    overlayCloseButton = std::make_unique<Button>(
+        screenWidth - btnWidth - 30,
+        screenHeight - btnHeight - 30,
+        btnWidth,
+        btnHeight,
+        "assets/images/button/btn_exit.png"
+    );
 
-    // load quit confirmation background
-    s = SDL_LoadBMP("assets/images/background/quit_bg.bmp");
-    if (s) { quitTexture = SDL_CreateTextureFromSurface(renderer, s); SDL_FreeSurface(s); }
-    else SDL_Log("quit overlay not found: %s", SDL_GetError());
-
-    // Create overlay close/back button using the same exit button as main menu
-    overlayCloseButton = std::make_unique<Button>(screenWidth - btnWidth - 30,
-                                                  screenHeight - btnHeight - 30,
-                                                  btnWidth, btnHeight,
-                                                  "assets/images/button/btn_exit.bmp");
     if (!overlayCloseButton->load(renderer)) {
         SDL_Log("Failed to load overlay close button");
         overlayCloseButton.reset();
     }
 
-    // Create Yes / No buttons for quit overlay (use btn_co / btn_khong)
+    // =========================
+    // Yes / No buttons
+    // =========================
     const int qBtnW = 160;
     const int qBtnH = 64;
     const int qSpacing = 40;
-    int qCenterX = screenWidth / 2;
-    int qY = screenHeight - 180; // place above bottom
-    // Yes button left
-    overlayYesButton = std::make_unique<Button>(qCenterX - qBtnW - qSpacing/2, qY, qBtnW, qBtnH,
-                                                "assets/images/button/btn_co.bmp");
-    if (!overlayYesButton->load(renderer)) { SDL_Log("Failed to load yes button"); overlayYesButton.reset(); }
-    // No button right
-    overlayNoButton = std::make_unique<Button>(qCenterX + qSpacing/2, qY, qBtnW, qBtnH,
-                                               "assets/images/button/btn_khong.bmp");
-    if (!overlayNoButton->load(renderer)) { SDL_Log("Failed to load no button"); overlayNoButton.reset(); }
 
-    // Create system cursors (only once per scene load)
-    if (!gArrowCursor) {
+    int qCenterX = screenWidth / 2;
+    int qY = screenHeight - 180;
+
+    overlayYesButton = std::make_unique<Button>(
+        qCenterX - qBtnW - qSpacing / 2,
+        qY,
+        qBtnW,
+        qBtnH,
+        "assets/images/button/btn_co.png"
+    );
+
+    if (!overlayYesButton->load(renderer)) {
+        SDL_Log("Failed to load yes button");
+        overlayYesButton.reset();
+    }
+
+    overlayNoButton = std::make_unique<Button>(
+        qCenterX + qSpacing / 2,
+        qY,
+        qBtnW,
+        qBtnH,
+        "assets/images/button/btn_khong.png"
+    );
+
+    if (!overlayNoButton->load(renderer)) {
+        SDL_Log("Failed to load no button");
+        overlayNoButton.reset();
+    }
+
+    // =========================
+    // Cursors
+    // =========================
+    if (!gArrowCursor)
         gArrowCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
-    }
-    if (!gHandCursor) {
+
+    if (!gHandCursor)
         gHandCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
-    }
 
     return true;
 }
 
+
 void MenuScene::initializeButtons() {
-    // Better layout - buttons positioned more aesthetically
+
     int centerX = (screenWidth - btnWidth) / 2;
-    int startY = 200;
+    int startY  = 200;
     int spacing = 110;
-    
-    // START button - main action button
-    buttons.push_back(std::make_unique<Button>(centerX, startY, btnWidth, btnHeight, 
-                                               "assets/images/button/btn_start.bmp"));
-    
-    // STORY button
-    buttons.push_back(std::make_unique<Button>(centerX, startY + spacing, btnWidth, btnHeight,
-                                               "assets/images/button/btn_story.bmp"));
-    
-    // GUIDE button
-    buttons.push_back(std::make_unique<Button>(centerX, startY + spacing * 2, btnWidth, btnHeight,
-                                               "assets/images/button/btn_guide.bmp"));
-    
-    // RANK button
-    buttons.push_back(std::make_unique<Button>(centerX, startY + spacing * 3, btnWidth, btnHeight,
-                                               "assets/images/button/btn_bxh.bmp"));
-    
-    // EXIT button - positioned at bottom right
-    buttons.push_back(std::make_unique<Button>(screenWidth - btnWidth - 30, screenHeight - btnHeight - 30, 
-                                               btnWidth, btnHeight,
-                                               "assets/images/button/btn_exit.bmp"));
+
+    buttons.push_back(std::make_unique<Button>(
+        centerX, startY, btnWidth, btnHeight,
+        "assets/images/button/btn_start.png"
+    ));
+
+    buttons.push_back(std::make_unique<Button>(
+        centerX, startY + spacing, btnWidth, btnHeight,
+        "assets/images/button/btn_story.png"
+    ));
+
+    buttons.push_back(std::make_unique<Button>(
+        centerX, startY + spacing * 2, btnWidth, btnHeight,
+        "assets/images/button/btn_guide.png"
+    ));
+
+    buttons.push_back(std::make_unique<Button>(
+        centerX, startY + spacing * 3, btnWidth, btnHeight,
+        "assets/images/button/btn_bxh.png"
+    ));
+
+    buttons.push_back(std::make_unique<Button>(
+        screenWidth - btnWidth - 30,
+        screenHeight - btnHeight - 30,
+        btnWidth, btnHeight,
+        "assets/images/button/btn_exit.png"
+    ));
 }
+
 
 void MenuScene::handleEvent(SDL_Event& event) {
     // If an overlay is visible, special handling per overlay type
