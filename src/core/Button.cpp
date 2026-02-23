@@ -1,4 +1,5 @@
 #include "Button.h"
+#include <SDL2/SDL_image.h>
 
 Button::Button(int x, int y, int width, int height, const std::string& imagePath)
     : imagePath(imagePath) {
@@ -13,21 +14,16 @@ Button::~Button() {
 }
 
 bool Button::load(SDL_Renderer* renderer) {
-    SDL_Surface* surface = SDL_LoadBMP(imagePath.c_str());
-    
-    if (!surface) {
-        SDL_Log("Failed to load button: %s - %s", imagePath.c_str(), SDL_GetError());
-        return false;
-    }
-    
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    
+
+    texture = IMG_LoadTexture(renderer, imagePath.c_str());
+
     if (!texture) {
-        SDL_Log("Failed to create button texture: %s", SDL_GetError());
+        SDL_Log("Failed to load button: %s - %s",
+                imagePath.c_str(),
+                IMG_GetError());
         return false;
     }
-    
+
     return true;
 }
 
