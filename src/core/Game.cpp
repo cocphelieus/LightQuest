@@ -2,7 +2,7 @@
 #include <SDL2/SDL.h>
 
 void Game::run() {
-    window.init("Dark Maze", 1280, 720);
+    window.init("LightQuest", 1280, 720);
     loading.load(window.getRenderer());
     menu.load(window.getRenderer());
 

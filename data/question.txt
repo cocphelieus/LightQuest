@@ -1,0 +1,232 @@
+What is the primary role of the operating system from a top-down view?
+A. Manage hardware resources directly
+B. Provide abstractions to application programs
+C. Control all I/O devices physically
+D. Replace the need for compilers
+B
+
+Which generation of computers used vacuum tubes (1945–1955)?
+A. First generation
+B. Second generation
+C. Third generation
+D. Fourth generation
+A
+
+What is the main characteristic of batch systems in the second generation?
+A. Interactive use by many users
+B. Jobs processed one after another from tape
+C. Real-time response
+D. Multiprogramming with many jobs in memory
+B
+
+In multiprogramming systems (third generation), what allows better CPU utilization?
+A. Keeping only one program in memory
+B. Having multiple programs in memory at once
+C. Using only magnetic tapes
+D. Removing all I/O devices
+B
+
+Which view considers the operating system as a resource manager that allocates resources in an orderly way?
+A. Top-down view
+B. Bottom-up view
+C. Extended machine view
+D. Alternative resource allocation view
+D
+
+What does a process represent in modern operating systems?
+A. Only the program code
+B. A program in execution together with its address space and resources
+C. Just the CPU registers
+D. Only open files
+B
+
+Which of the following is NOT one of the four principal events that cause process creation?
+A. System initialization
+B. Execution of a process creation system call
+C. User request to create a new process
+D. Automatic memory compaction
+D
+
+Which process state means the process is actually using the CPU at that instant?
+A. Ready
+B. Blocked
+C. Running
+D. Waiting
+C
+
+In the classical thread model, which item is typically shared by all threads within the same process?
+A. Program counter
+B. Stack
+C. Address space
+D. Register contents
+C
+
+Which of the following is a requirement for a good solution to avoid race conditions?
+A. Allow two processes in critical region at same time
+B. Make assumptions about relative speeds of processes
+C. No process should wait forever to enter critical region
+D. Allow external process to block others
+C
+
+Which mutual exclusion solution uses the TSL (Test and Set Lock) instruction?
+A. Strict alternation
+B. Peterson’s solution
+C. Hardware-based busy waiting
+D. Sleep and wakeup primitive
+C
+
+In the producer-consumer problem using semaphores, what do the down() and up() operations correspond to?
+A. Signal and wait
+B. Wait and signal
+C. Lock and unlock
+D. Enter and exit
+B
+
+Which scheduling algorithm always picks the process with the shortest expected remaining time?
+A. First-Come First-Served
+B. Round-Robin
+C. Shortest Remaining Time Next
+D. Priority scheduling
+C
+
+What is the main disadvantage of First-Come First-Served (FCFS) scheduling?
+A. High CPU utilization
+B. Convoy effect (short jobs wait behind long ones)
+C. Starvation of I/O-bound processes
+D. Frequent context switches
+B
+
+Which page replacement algorithm suffers from Belady’s anomaly?
+A. LRU
+B. Optimal
+C. FIFO
+D. Second-chance
+C
+
+What does the “R bit” (Referenced bit) indicate in page replacement algorithms?
+A. Page is modified
+B. Page has been referenced recently
+C. Page is in swap space
+D. Page belongs to kernel
+B
+
+In multilevel page tables, what is the main advantage compared to single-level page table?
+A. Faster address translation
+B. Much smaller memory usage for sparse address spaces
+C. No need for TLB
+D. Larger page size
+B
+
+Which memory management technique allows programs larger than physical memory to run?
+A. Swapping
+B. Overlays
+C. Virtual memory with paging
+D. Base and limit registers only
+C
+
+In segmentation, what problem does pure segmentation suffer from?
+A. Internal fragmentation
+B. External fragmentation (checkerboarding)
+C. No protection
+D. Fixed partition size
+B
+
+What is the main purpose of the i-node in UNIX-like file systems?
+A. Store the file name
+B. Contain attributes and pointers to data blocks
+C. Act as the root directory
+D. Keep track of free blocks
+B
+
+Which allocation method for files leads to external fragmentation but no internal fragmentation?
+A. Contiguous allocation
+B. Linked list allocation
+C. Indexed allocation (i-node)
+D. FAT (File Allocation Table)
+A
+
+In a file system using i-nodes, how many direct pointers are typically stored in the i-node (classic UNIX)?
+A. 10
+B. 12–15
+C. 1
+D. 100
+B
+
+What does journaling in file systems primarily prevent?
+A. File deletion
+B. Inconsistent file system after crash
+C. Large file sizes
+D. Directory sharing
+B
+
+Which file system characteristic does the ISO 9660 standard (CD-ROM) enforce?
+A. Long file names by default
+B. Maximum 8+3 filename format
+C. Symbolic links
+D. Journaling
+B
+
+Which of the following is the correct order of increasing access speed (fastest to slowest)?
+A. CPU register → L1 cache → Main memory → Disk
+B. Disk → Main memory → L1 cache → CPU register
+C. Main memory → CPU register → Disk → L2 cache
+D. L1 cache → Disk → Main memory → Register
+A
+
+What component turns ugly hardware into beautiful abstractions according to Tanenbaum?
+A. Compiler
+B. Operating system
+C. CPU
+D. Memory hierarchy
+B
+
+Which of the following is an example of a fifth-generation computing device?
+A. IBM 7094
+B. Personal computer
+C. Mobile smartphone
+D. Mainframe with vacuum tubes
+C
+
+In the figure of a process tree, if process A creates B and C, and B creates D, E, F, what is D to A?
+A. Parent
+B. Child
+C. Grandchild
+D. Sibling
+C
+
+Which POSIX system call is used to create a new process?
+A. fork()
+B. exec()
+C. wait()
+D. exit()
+A
+
+In Peterson’s solution for mutual exclusion, how many shared variables are used?
+A. 1
+B. 2
+C. 3
+D. 4
+B
+
+What is the main purpose of the “turn” variable in strict alternation solution?
+A. Indicate whose turn it is to enter critical region
+B. Count number of processes
+C. Store process ID
+D. Lock the memory bus
+A
+
+Which thread implementation runs entirely in user space without kernel support?
+A. Kernel-level threads
+B. User-level threads
+C. Hybrid threads
+D. Pop-up threads
+B
+
+In round-robin scheduling, what happens when a process uses up its time quantum?
+A. It terminates
+B. It is moved to the end of the ready queue
+C. Its priority increases
+D. It enters blocked state
+B
+
+What scheduling algorithm gives each process a fair
