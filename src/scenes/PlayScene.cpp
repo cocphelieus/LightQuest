@@ -9,6 +9,7 @@ PlayScene::PlayScene()
 void PlayScene::load(SDL_Renderer* renderer)
 {
     std::cout << "PlayScene Loaded\n";
+    map.load(renderer, "assets/images/background/map_level_1.png");
 }
 
 void PlayScene::handleEvent(SDL_Event& event)
@@ -31,6 +32,7 @@ void PlayScene::render(SDL_Renderer* renderer)
 {
     SDL_SetRenderDrawColor(renderer, 0, 100, 255, 255);
     SDL_RenderFillRect(renderer, &testRect);
+    map.render(renderer);
 }
 
 void PlayScene::clean()

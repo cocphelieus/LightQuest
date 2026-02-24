@@ -9,6 +9,8 @@ src/core/Window.cpp ^
 src/core/Button.cpp ^
 src/scenes/MenuScene.cpp ^
 src/scenes/LoadingScene.cpp ^
+src/scenes/PlayScene.cpp ^
+src/map/MapManager.cpp ^
 -o LightQuest.exe ^
 -lmingw32 ^
 -lSDL2main ^
