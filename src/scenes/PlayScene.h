@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL2/SDL.h>
 #include "../map/MapManager.h"
+#include "../entities/Player.h"
 
 class PlayScene
 {
@@ -15,5 +16,6 @@ public:
 
 private:
     MapManager map;
+    Player player;
     SDL_Rect testRect;
 };

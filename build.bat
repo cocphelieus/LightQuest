@@ -11,6 +11,7 @@ src/scenes/MenuScene.cpp ^
 src/scenes/LoadingScene.cpp ^
 src/scenes/PlayScene.cpp ^
 src/map/MapManager.cpp ^
+src/entities/Player.cpp ^
 -o LightQuest.exe ^
 -lmingw32 ^
 -lSDL2main ^
