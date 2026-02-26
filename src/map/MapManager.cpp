@@ -26,7 +26,7 @@ void MapManager::initializeMap()
     }
 }
 
-bool MapManager::load(SDL_Renderer* renderer, const char* backgroundPath)
+bool MapManager::load(SDL_Renderer *renderer, const char *backgroundPath)
 {
     backgroundTexture = IMG_LoadTexture(renderer, backgroundPath);
     return backgroundTexture != nullptr;
@@ -34,11 +34,23 @@ bool MapManager::load(SDL_Renderer* renderer, const char* backgroundPath)
 
 void MapManager::render(SDL_Renderer* renderer)
 {
-    // 1️⃣ Render background
+    // 1️⃣ Render background full screen
     if (backgroundTexture)
+    {
         SDL_RenderCopy(renderer, backgroundTexture, nullptr, nullptr);
+    }
 
-    // 2️⃣ Render debug grid logic
+    // 2️⃣ Tính offset để căn giữa grid
+    int mapWidth = COLS * TILE_SIZE;
+    int mapHeight = ROWS * TILE_SIZE;
+
+    int screenWidth = 1280;
+    int screenHeight = 720;
+
+    int offsetX = (screenWidth - mapWidth) / 2;
+    int offsetY = (screenHeight - mapHeight) / 2;
+
+    // 3️⃣ Render grid logic
     SDL_Rect tileRect;
     tileRect.w = TILE_SIZE;
     tileRect.h = TILE_SIZE;
@@ -47,19 +59,17 @@ void MapManager::render(SDL_Renderer* renderer)
     {
         for (int c = 0; c < COLS; c++)
         {
-            tileRect.x = c * TILE_SIZE;
-            tileRect.y = r * TILE_SIZE;
+            tileRect.x = offsetX + c * TILE_SIZE;
+            tileRect.y = offsetY + r * TILE_SIZE;
 
             if (map[r][c] == 1)
             {
-                // vẽ tường màu đỏ mờ để debug
                 SDL_SetRenderDrawColor(renderer, 255, 0, 0, 120);
                 SDL_RenderFillRect(renderer, &tileRect);
             }
         }
     }
 }
-
 int MapManager::getTile(int row, int col) const
 {
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS)
