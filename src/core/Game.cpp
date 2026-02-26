@@ -4,7 +4,7 @@
 void Game::run()
 {
     // ===== Init Window =====
-    window.init("LightQuest", 1280, 720);
+    window.init("LightQuest", 1280, 720, true);
 
     // ===== Load Scenes =====
     loading.load(window.getRenderer());
@@ -27,6 +27,13 @@ void Game::run()
         {
             if (event.type == SDL_QUIT)
                 running = false;
+
+            // TOGGLE FULLSCREEN (F11)
+            if (event.type == SDL_KEYDOWN &&
+                event.key.keysym.sym == SDLK_F11)
+            {
+                window.toggleFullscreen();
+            }
 
             // LOADING: Skip with SPACE
             if (currentState == GameState::LOADING &&

@@ -1,16 +1,24 @@
 #pragma once
 #include <SDL2/SDL.h>
+#include <string>
 
-class Window {
+class Window
+{
 public:
-    bool init(const char* title, int w, int h);
-    void clear();
-    void present();
+    bool init(const std::string& title, int width, int height, bool startFullscreen);
     void clean();
 
-    SDL_Renderer* getRenderer();
+    void clear();
+    void present();
+
+    void toggleFullscreen();
+    bool isFullscreen() const;
+
+    SDL_Renderer* getRenderer() const;
 
 private:
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
+
+    bool fullscreen = false;
 };

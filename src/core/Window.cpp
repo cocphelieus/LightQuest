@@ -1,41 +1,67 @@
 #include "Window.h"
 
-bool Window::init(const char* title, int w, int h) {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-        return false;
+bool Window::init(const std::string& title, int width, int height, bool startFullscreen)
+{
+    fullscreen = startFullscreen;
+
+    Uint32 flags = SDL_WINDOW_SHOWN;
+    if (fullscreen)
+        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
     window = SDL_CreateWindow(
-        title,
+        title.c_str(),
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        w, h,
-        SDL_WINDOW_SHOWN
+        width,
+        height,
+        flags
     );
+
+    if (!window) return false;
 
     renderer = SDL_CreateRenderer(
         window,
         -1,
-        SDL_RENDERER_ACCELERATED
+        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
     );
 
-    return window && renderer;
+    if (!renderer) return false;
+
+    return true;
 }
 
-void Window::clear() {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+void Window::toggleFullscreen()
+{
+    fullscreen = !fullscreen;
+
+    SDL_SetWindowFullscreen(
+        window,
+        fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0
+    );
+}
+
+bool Window::isFullscreen() const
+{
+    return fullscreen;
+}
+
+void Window::clear()
+{
     SDL_RenderClear(renderer);
 }
 
-void Window::present() {
+void Window::present()
+{
     SDL_RenderPresent(renderer);
 }
 
-SDL_Renderer* Window::getRenderer() {
+SDL_Renderer* Window::getRenderer() const
+{
     return renderer;
 }
 
-void Window::clean() {
+void Window::clean()
+{
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    SDL_Quit();
 }
