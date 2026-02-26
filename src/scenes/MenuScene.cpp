@@ -226,6 +226,7 @@ void MenuScene::handleButtonClick(int buttonIndex) {
     switch (buttonIndex) {
         case 0: // START
             SDL_Log("START button clicked!");
+            currentState = MenuState::PLAY;
             break;
         case 1: // STORY
             SDL_Log("STORY button clicked!");

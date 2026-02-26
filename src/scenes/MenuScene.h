@@ -6,6 +6,8 @@
 
 enum class MenuState {
     MAIN_MENU,
+    NONE,
+    PLAY,
     EXIT
 };
 
