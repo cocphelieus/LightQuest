@@ -12,11 +12,14 @@ src/scenes/LoadingScene.cpp ^
 src/scenes/PlayScene.cpp ^
 src/map/MapManager.cpp ^
 src/entities/Player.cpp ^
+src/quiz/QuestionManager.cpp ^
+src/quiz/HUD.cpp ^
 -o LightQuest.exe ^
 -lmingw32 ^
 -lSDL2main ^
 -lSDL2 ^
 -lSDL2_image ^
+-lSDL2_ttf ^
 -Wall
 
 if %errorlevel% neq 0 (

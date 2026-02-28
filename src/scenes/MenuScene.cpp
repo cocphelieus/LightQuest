@@ -1,5 +1,6 @@
 #include "MenuScene.h"
 #include <SDL2/SDL_image.h>
+#include "../core/Asset.h"
 
 // Add file-scope cursor handles
 static SDL_Cursor* gArrowCursor = nullptr;
@@ -16,7 +17,7 @@ bool MenuScene::load(SDL_Renderer* renderer) {
     // =========================
     // Load background (PNG)
     // =========================
-    backgroundTexture = IMG_LoadTexture(renderer, "assets/images/background/menu.png");
+    backgroundTexture = IMG_LoadTexture(renderer, ASSET("background/menu.png"));
 
     if (!backgroundTexture) {
         SDL_Log("Failed to load menu background: %s", IMG_GetError());
@@ -37,14 +38,14 @@ bool MenuScene::load(SDL_Renderer* renderer) {
     // =========================
     // Load overlay textures (PNG)
     // =========================
-    storyTexture  = IMG_LoadTexture(renderer, "assets/images/background/story.png");
-    storyTexture2 = IMG_LoadTexture(renderer, "assets/images/background/story2.png");
+    storyTexture  = IMG_LoadTexture(renderer, ASSET("background/story.png"));
+    storyTexture2 = IMG_LoadTexture(renderer, ASSET("background/story2.png"));
 
-    guideTexture  = IMG_LoadTexture(renderer, "assets/images/background/guide.png");
-    guideTexture2 = IMG_LoadTexture(renderer, "assets/images/background/guide2.png");
+    guideTexture  = IMG_LoadTexture(renderer, ASSET("background/guide.png"));
+    guideTexture2 = IMG_LoadTexture(renderer, ASSET("background/guide2.png"));
 
-    rankTexture = IMG_LoadTexture(renderer, "assets/images/background/rank.png");
-    quitTexture = IMG_LoadTexture(renderer, "assets/images/background/quit.png");
+    rankTexture = IMG_LoadTexture(renderer, ASSET("background/rank.png"));
+    quitTexture = IMG_LoadTexture(renderer, ASSET("background/quit.png"));
 
     // Optional logs
     if (!storyTexture) SDL_Log("Story texture missing: %s", IMG_GetError());
@@ -60,7 +61,7 @@ bool MenuScene::load(SDL_Renderer* renderer) {
         screenHeight - btnHeight - 30,
         btnWidth,
         btnHeight,
-        "assets/images/button/btn_exit.png"
+        ASSET("button/btn_exit.png")
     );
 
     if (!overlayCloseButton->load(renderer)) {
@@ -83,7 +84,7 @@ bool MenuScene::load(SDL_Renderer* renderer) {
         qY,
         qBtnW,
         qBtnH,
-        "assets/images/button/btn_co.png"
+        ASSET("button/btn_co.png")
     );
 
     if (!overlayYesButton->load(renderer)) {
@@ -96,7 +97,7 @@ bool MenuScene::load(SDL_Renderer* renderer) {
         qY,
         qBtnW,
         qBtnH,
-        "assets/images/button/btn_khong.png"
+        ASSET("button/btn_khong.png")
     );
 
     if (!overlayNoButton->load(renderer)) {
@@ -125,29 +126,29 @@ void MenuScene::initializeButtons() {
 
     buttons.push_back(std::make_unique<Button>(
         centerX, startY, btnWidth, btnHeight,
-        "assets/images/button/btn_start.png"
+        ASSET("button/btn_start.png")
     ));
 
     buttons.push_back(std::make_unique<Button>(
         centerX, startY + spacing, btnWidth, btnHeight,
-        "assets/images/button/btn_story.png"
+        ASSET("button/btn_story.png")
     ));
 
     buttons.push_back(std::make_unique<Button>(
         centerX, startY + spacing * 2, btnWidth, btnHeight,
-        "assets/images/button/btn_guide.png"
+        ASSET("button/btn_guide.png")
     ));
 
     buttons.push_back(std::make_unique<Button>(
         centerX, startY + spacing * 3, btnWidth, btnHeight,
-        "assets/images/button/btn_bxh.png"
+        ASSET("button/btn_bxh.png")
     ));
 
     buttons.push_back(std::make_unique<Button>(
         screenWidth - btnWidth - 30,
         screenHeight - btnHeight - 30,
         btnWidth, btnHeight,
-        "assets/images/button/btn_exit.png"
+        ASSET("button/btn_exit.png")
     ));
 }
 

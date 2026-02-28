@@ -1,4 +1,5 @@
 #include "LoadingScene.h"
+#include "../core/Asset.h"
 #include <cmath>
 #include <SDL2/SDL_image.h>
 
@@ -13,7 +14,7 @@ bool LoadingScene::load(SDL_Renderer* renderer) {
     this->renderer = renderer;
 
     // Load PNG background using SDL_image
-    backgroundTexture = IMG_LoadTexture(renderer, "assets/images/background/menu.png");
+    backgroundTexture = IMG_LoadTexture(renderer, ASSET("background/menu.png"));
 
     if (!backgroundTexture) {
         SDL_Log("Warning: Could not load loading screen background: %s", IMG_GetError());

@@ -1,7 +1,10 @@
 #include "Window.h"
+#include <SDL2/SDL_ttf.h>
 
 bool Window::init(const char* title, int w, int h) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
+        return false;
+    if (TTF_Init() == -1)
         return false;
 
     window = SDL_CreateWindow(
@@ -37,5 +40,6 @@ SDL_Renderer* Window::getRenderer() {
 void Window::clean() {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    TTF_Quit();
     SDL_Quit();
 }
