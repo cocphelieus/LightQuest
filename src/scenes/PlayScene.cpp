@@ -3,14 +3,18 @@
 
 PlayScene::PlayScene()
 {
-    testRect = {200, 150, 200, 100};
 }
 
 void PlayScene::load(SDL_Renderer *renderer)
 {
     std::cout << "PlayScene Loaded\n";
+
     map.load(renderer, "assets/images/background/map_level_1.png");
-    player.setPosition(1, 1);
+
+    player.load(renderer, "assets/images/entities/bot.png");   
+
+    int tileSize = 32;
+    player.setPosition(1, 1, tileSize);
 }
 
 void PlayScene::handleEvent(SDL_Event &event)
@@ -22,19 +26,17 @@ void PlayScene::handleEvent(SDL_Event &event)
             std::cout << "ESC pressed\n";
         }
     }
+
     player.handleEvent(event, map);
 }
 
 void PlayScene::update(float deltaTime)
 {
-    // sau này dùng deltaTime cho movement
+    player.update(deltaTime, map);
 }
 
 void PlayScene::render(SDL_Renderer *renderer)
 {
-    SDL_SetRenderDrawColor(renderer, 0, 100, 255, 255);
-    SDL_RenderFillRect(renderer, &testRect);
-    map.render(renderer);
     int mapWidth = 20 * 32;
     int mapHeight = 20 * 32;
 
@@ -45,9 +47,11 @@ void PlayScene::render(SDL_Renderer *renderer)
     int offsetY = (screenHeight - mapHeight) / 2;
 
     map.render(renderer);
+
     player.render(renderer, offsetX, offsetY);
 }
 
 void PlayScene::clean()
 {
+    player.clean();
 }
