@@ -369,3 +369,10 @@ void MenuScene::clean() {
         gHandCursor = nullptr;
     }
 }
+
+void MenuScene::resetToMain() {
+    currentState = MenuState::MAIN_MENU;
+    overlayVisible = false;
+    currentOverlayType = OverlayType::NONE;
+    currentOverlayPage = 0;
+}

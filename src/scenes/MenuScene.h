@@ -21,6 +21,7 @@ public:
     void update();
     void render(SDL_Renderer* renderer);
     void clean();
+    void resetToMain();
     
     MenuState getState() const { return currentState; }
 

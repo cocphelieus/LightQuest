@@ -1,5 +1,58 @@
 #include "Game.h"
 #include <SDL2/SDL.h>
+#include <cstdio>
+
+static Difficulty difficultyForCampaignStage(int stage)
+{
+    if (stage <= 0)
+        return Difficulty::EASY;
+    if (stage == 1)
+        return Difficulty::MEDIUM;
+    return Difficulty::HARD;
+}
+
+static const char* stageName(int stage)
+{
+    if (stage <= 0)
+        return "De";
+    if (stage == 1)
+        return "Trung binh";
+    return "Kho";
+}
+
+static void showStageClearMessage(int stage)
+{
+    char message[256];
+    std::snprintf(
+        message,
+        sizeof(message),
+        "Chuc mung! Ban da pha dao man %s.",
+        stageName(stage)
+    );
+
+    SDL_ShowSimpleMessageBox(
+        SDL_MESSAGEBOX_INFORMATION,
+        "Qua man",
+        message,
+        nullptr
+    );
+}
+
+static void showCampaignCompleteMessage()
+{
+    SDL_ShowSimpleMessageBox(
+        SDL_MESSAGEBOX_INFORMATION,
+        "Chuc mung",
+        "Ban da pha dao ca 3 man De - Trung binh - Kho!",
+        nullptr
+    );
+}
+
+static void startCampaignFromBeginning(PlayScene& play, SDL_Renderer* renderer)
+{
+    play.setDifficulty(difficultyForCampaignStage(0));
+    play.load(renderer);
+}
 
 void Game::run()
 {
@@ -12,6 +65,8 @@ void Game::run()
 
     SDL_Event event;
     lastFrameTime = SDL_GetTicks();
+
+    int campaignStage = 0;
 
     // ===== Main Game Loop =====
     while (running)
@@ -46,8 +101,9 @@ void Game::run()
 
                 if (menu.getState() == MenuState::PLAY)
                 {
+                    campaignStage = 0;
                     currentState = GameState::PLAYING;
-                    play.load(window.getRenderer());
+                    startCampaignFromBeginning(play, window.getRenderer());
                 }
             }
 
@@ -75,6 +131,38 @@ void Game::run()
 
         case GameState::PLAYING:
             play.update(deltaTime);
+            if (play.shouldReturnToMenu())
+            {
+                PlayOutcome outcome = play.getOutcome();
+
+                if (outcome == PlayOutcome::CLEARED)
+                {
+                    showStageClearMessage(campaignStage);
+                    campaignStage++;
+
+                    if (campaignStage < 3)
+                    {
+                        play.clean();
+                        play.setDifficulty(difficultyForCampaignStage(campaignStage));
+                        play.load(window.getRenderer());
+                    }
+                    else
+                    {
+                        showCampaignCompleteMessage();
+                        currentState = GameState::MENU;
+                        menu.resetToMain();
+                        play.clean();
+                        campaignStage = 0;
+                    }
+                }
+                else
+                {
+                    currentState = GameState::MENU;
+                    menu.resetToMain();
+                    play.clean();
+                    campaignStage = 0;
+                }
+            }
             break;
         }
 

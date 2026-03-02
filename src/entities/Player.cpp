@@ -17,15 +17,30 @@ void Player::handleEvent(SDL_Event& event, const MapManager& map)
 {
     if (event.type == SDL_KEYDOWN)
     {
+        if (event.key.repeat != 0)
+            return;
+
         int newRow = row;
         int newCol = col;
 
         switch (event.key.keysym.sym)
         {
-            case SDLK_w: newRow--; break;
-            case SDLK_s: newRow++; break;
-            case SDLK_a: newCol--; break;
-            case SDLK_d: newCol++; break;
+            case SDLK_w:
+            case SDLK_UP:
+                newRow--;
+                break;
+            case SDLK_s:
+            case SDLK_DOWN:
+                newRow++;
+                break;
+            case SDLK_a:
+            case SDLK_LEFT:
+                newCol--;
+                break;
+            case SDLK_d:
+            case SDLK_RIGHT:
+                newCol++;
+                break;
         }
 
         if (!map.isWall(newRow, newCol))
@@ -36,13 +51,13 @@ void Player::handleEvent(SDL_Event& event, const MapManager& map)
     }
 }
 
-void Player::render(SDL_Renderer* renderer, int offsetX, int offsetY)
+void Player::render(SDL_Renderer* renderer, int offsetX, int offsetY, int tileSize)
 {
     SDL_Rect rect;
-    rect.w = TILE_SIZE;
-    rect.h = TILE_SIZE;
-    rect.x = offsetX + col * TILE_SIZE;
-    rect.y = offsetY + row * TILE_SIZE;
+    rect.w = tileSize;
+    rect.h = tileSize;
+    rect.x = offsetX + col * tileSize;
+    rect.y = offsetY + row * tileSize;
 
     SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
     SDL_RenderFillRect(renderer, &rect);
