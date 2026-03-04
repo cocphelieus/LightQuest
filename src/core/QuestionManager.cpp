@@ -101,7 +101,7 @@ bool QuestionManager::askQuestion(int index, bool showCorrectAnswer)
     };
 
     SDL_MessageBoxData boxdata;
-    boxdata.flags = SDL_MESSAGEBOX_INFORMATION;
+    boxdata.flags = SDL_MESSAGEBOX_INFORMATION | SDL_MESSAGEBOX_BUTTONS_LEFT_TO_RIGHT;
     boxdata.window = nullptr;
     boxdata.title = "Question";
     boxdata.message = message.c_str();

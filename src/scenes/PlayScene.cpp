@@ -3,13 +3,31 @@
 #include <cstdlib>
 #include <cstdio>
 
+namespace
+{
+#if defined(LQ_ENABLE_TESTER)
+    constexpr bool kTesterEnabledBuild = true;
+#else
+    constexpr bool kTesterEnabledBuild = false;
+#endif
+}
+
 void PlayScene::syncTesterOverlay()
 {
+    if (!kTesterEnabledBuild)
+    {
+        map.setTesterOverlay(false, false);
+        return;
+    }
+
     map.setTesterOverlay(testerShowMines, testerShowTorches);
 }
 
 void PlayScene::openTesterPanel()
 {
+    if (!kTesterEnabledBuild)
+        return;
+
     bool keepOpen = true;
 
     while (keepOpen)
@@ -126,7 +144,7 @@ void PlayScene::handleEvent(SDL_Event &event)
 {
     if (event.type == SDL_KEYDOWN)
     {
-        if (event.key.keysym.sym == SDLK_t)
+        if (kTesterEnabledBuild && event.key.keysym.sym == SDLK_t)
         {
             openTesterPanel();
             return;
@@ -204,7 +222,8 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
         if (questionManager.hasQuestions())
         {
             int questionIndex = questionManager.randomIndex();
-            correct = questionManager.askQuestion(questionIndex, testerShowAnswer);
+            bool showAnswer = kTesterEnabledBuild && testerShowAnswer;
+            correct = questionManager.askQuestion(questionIndex, showAnswer);
             answeredQuestion = true;
         }
 

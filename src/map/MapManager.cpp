@@ -1,4 +1,4 @@
-#include "MapManager.h"
+    #include "MapManager.h"
 #include <SDL2/SDL_image.h>
 #include <cstdlib>
 #include <ctime>
@@ -7,6 +7,15 @@
 #include <limits>
 #include <algorithm>
 #include <random>
+
+namespace
+{
+#if defined(LQ_ENABLE_TESTER)
+    constexpr bool kTesterEnabledBuild = true;
+#else
+    constexpr bool kTesterEnabledBuild = false;
+#endif
+}
 
 MapManager::MapManager()
 {
@@ -815,8 +824,8 @@ void MapManager::render(SDL_Renderer* renderer)
             tileRect.x = offsetX + c * TILE_SIZE;
             tileRect.y = offsetY + r * TILE_SIZE;
             bool alwaysRevealGoalTile = map[r][c] == GOAL;
-            bool testerRevealTorchTile = testerRevealTorches && map[r][c] == TORCH;
-            bool testerRevealMineTile = testerRevealMines && map[r][c] == MINE;
+            bool testerRevealTorchTile = kTesterEnabledBuild && testerRevealTorches && map[r][c] == TORCH;
+            bool testerRevealMineTile = kTesterEnabledBuild && testerRevealMines && map[r][c] == MINE;
             bool testerRevealTile = testerRevealTorchTile || testerRevealMineTile;
             bool revealDetailTile = visible[r][c] || testerRevealTile || alwaysRevealGoalTile;
 
@@ -1789,6 +1798,13 @@ bool MapManager::isDetailVisible(int row, int col) const
 
 void MapManager::setTesterOverlay(bool revealMines, bool revealTorches)
 {
+    if (!kTesterEnabledBuild)
+    {
+        testerRevealMines = false;
+        testerRevealTorches = false;
+        return;
+    }
+
     testerRevealMines = revealMines;
     testerRevealTorches = revealTorches;
 }
