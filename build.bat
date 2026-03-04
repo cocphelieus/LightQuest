@@ -19,6 +19,7 @@ src/core/QuestionManager.cpp ^
 -lSDL2main ^
 -lSDL2 ^
 -lSDL2_image ^
+-lSDL2_ttf ^
 -Wall
 
 if %errorlevel% neq 0 (

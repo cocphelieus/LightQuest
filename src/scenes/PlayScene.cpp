@@ -71,7 +71,7 @@ void PlayScene::startLevel(Difficulty newDifficulty)
     difficulty = newDifficulty;
     map.reset(difficulty);
     map.activateStarterTorch();
-    player.setPosition(map.getStartRow(), map.getStartCol());
+    player.setPosition(map.getStartRow(), map.getStartCol(), map.getTileSize());
     checkpointRow = map.getStartRow();
     checkpointCol = map.getStartCol();
     torchActivated = 0;
@@ -89,6 +89,11 @@ void PlayScene::load(SDL_Renderer* renderer)
 
     std::cout << "PlayScene Loaded\n";
     map.load(renderer, "assets/images/background/map_level_1.png", difficulty);
+
+    // prepare player graphics
+    player.clean();
+    player.loadTexture(renderer);
+
     bool loadedQuestions = questionManager.loadFromFile("data/question.txt");
     startLevel(difficulty);
 
@@ -206,7 +211,7 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
         if (!answeredQuestion)
         {
             map.resolveTorch(row, col, false);
-            player.setPosition(oldRow, oldCol);
+            player.setPosition(oldRow, oldCol, map.getTileSize());
             SDL_ShowSimpleMessageBox(
                 SDL_MESSAGEBOX_WARNING,
                 "Khong co cau hoi",
@@ -229,7 +234,7 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
         else
         {
             map.hintNearestTorch(row, col);
-            player.setPosition(oldRow, oldCol);
+            player.setPosition(oldRow, oldCol, map.getTileSize());
         }
 
     }
@@ -242,7 +247,18 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
 
 void PlayScene::update(float deltaTime)
 {
-    (void)deltaTime;
+    // move player using pixel-based motion
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+
+    int oldRow = player.getRow();
+    int oldCol = player.getCol();
+
+    player.update(keystate, deltaTime, map);
+
+    if (oldRow != player.getRow() || oldCol != player.getCol())
+    {
+        onPlayerMoved(oldRow, oldCol);
+    }
 }
 
 void PlayScene::render(SDL_Renderer *renderer)
@@ -251,11 +267,12 @@ void PlayScene::render(SDL_Renderer *renderer)
     int offsetY = map.getRenderOffsetY();
 
     map.render(renderer);
-    player.render(renderer, offsetX, offsetY, map.getTileSize());
+    player.render(renderer, offsetX, offsetY);
 }
 
 void PlayScene::clean()
 {
     map.clean();
+    player.clean();
     rendererRef = nullptr;
 }

@@ -662,13 +662,35 @@ void MapManager::buildFixedTorchNetwork(Difficulty difficulty)
 
 bool MapManager::load(SDL_Renderer *renderer, const char *backgroundPath, Difficulty difficulty)
 {
+    // Destroy previous textures if any
     if (backgroundTexture)
     {
         SDL_DestroyTexture(backgroundTexture);
         backgroundTexture = nullptr;
     }
+    if (mineTexture)
+    {
+        SDL_DestroyTexture(mineTexture);
+        mineTexture = nullptr;
+    }
+    if (torchTexture)
+    {
+        SDL_DestroyTexture(torchTexture);
+        torchTexture = nullptr;
+    }
+    if (goalTexture)
+    {
+        SDL_DestroyTexture(goalTexture);
+        goalTexture = nullptr;
+    }
 
     backgroundTexture = IMG_LoadTexture(renderer, backgroundPath);
+    // load entity icons (ignore failure, drawing will fallback to color)
+    mineTexture = IMG_LoadTexture(renderer, "assets/images/entities/bom.png");
+    torchTexture = IMG_LoadTexture(renderer, "assets/images/entities/fire.png");
+    // there is no dedicated goal image; reuse fire for now or leave null
+    goalTexture = nullptr;
+
     reset(difficulty);
     return backgroundTexture != nullptr;
 }
@@ -812,23 +834,55 @@ void MapManager::render(SDL_Renderer* renderer)
                 {
                     if (map[r][c] == TORCH)
                     {
-                        if (torchState[r][c] == TORCH_SUCCESS)
-                            SDL_SetRenderDrawColor(renderer, 255, 200, 60, 255);
-                        else if (torchState[r][c] == TORCH_FAILED)
-                            SDL_SetRenderDrawColor(renderer, 110, 35, 35, 255);
+                        if (torchTexture)
+                        {
+                            // tint icon based on state
+                            if (torchState[r][c] == TORCH_SUCCESS)
+                                SDL_SetTextureColorMod(torchTexture, 255, 200, 60);
+                            else if (torchState[r][c] == TORCH_FAILED)
+                                SDL_SetTextureColorMod(torchTexture, 110, 35, 35);
+                            else
+                                SDL_SetTextureColorMod(torchTexture, 255, 160, 30);
+
+                            SDL_RenderCopy(renderer, torchTexture, nullptr, &tileRect);
+
+                            // reset modulation
+                            SDL_SetTextureColorMod(torchTexture, 255, 255, 255);
+                        }
                         else
-                            SDL_SetRenderDrawColor(renderer, 255, 160, 30, 255);
-                        SDL_RenderFillRect(renderer, &tileRect);
+                        {
+                            if (torchState[r][c] == TORCH_SUCCESS)
+                                SDL_SetRenderDrawColor(renderer, 255, 200, 60, 255);
+                            else if (torchState[r][c] == TORCH_FAILED)
+                                SDL_SetRenderDrawColor(renderer, 110, 35, 35, 255);
+                            else
+                                SDL_SetRenderDrawColor(renderer, 255, 160, 30, 255);
+                            SDL_RenderFillRect(renderer, &tileRect);
+                        }
                     }
                     else if (map[r][c] == MINE)
                     {
-                        SDL_SetRenderDrawColor(renderer, 200, 40, 40, 255);
-                        SDL_RenderFillRect(renderer, &tileRect);
+                        if (mineTexture)
+                        {
+                            SDL_RenderCopy(renderer, mineTexture, nullptr, &tileRect);
+                        }
+                        else
+                        {
+                            SDL_SetRenderDrawColor(renderer, 200, 40, 40, 255);
+                            SDL_RenderFillRect(renderer, &tileRect);
+                        }
                     }
                     else if (map[r][c] == GOAL)
                     {
-                        SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
-                        SDL_RenderFillRect(renderer, &tileRect);
+                        if (goalTexture)
+                        {
+                            SDL_RenderCopy(renderer, goalTexture, nullptr, &tileRect);
+                        }
+                        else
+                        {
+                            SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255);
+                            SDL_RenderFillRect(renderer, &tileRect);
+                        }
                     }
                 }
             }
@@ -1739,11 +1793,33 @@ void MapManager::setTesterOverlay(bool revealMines, bool revealTorches)
     testerRevealTorches = revealTorches;
 }
 
+// currently unused – textures are managed directly in load()/clean()
+void MapManager::cleanTextures(SDL_Renderer* renderer)
+{
+    (void)renderer;
+    // preserved for future extension
+}
+
 void MapManager::clean()
 {
     if (backgroundTexture)
     {
         SDL_DestroyTexture(backgroundTexture);
         backgroundTexture = nullptr;
+    }
+    if (mineTexture)
+    {
+        SDL_DestroyTexture(mineTexture);
+        mineTexture = nullptr;
+    }
+    if (torchTexture)
+    {
+        SDL_DestroyTexture(torchTexture);
+        torchTexture = nullptr;
+    }
+    if (goalTexture)
+    {
+        SDL_DestroyTexture(goalTexture);
+        goalTexture = nullptr;
     }
 }

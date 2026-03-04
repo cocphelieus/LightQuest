@@ -7,15 +7,31 @@ class Player
 {
 public:
     Player();
+    ~Player();
 
-    void handleEvent(SDL_Event& event, const MapManager& map);
-    void render(SDL_Renderer* renderer, int offsetX, int offsetY, int tileSize);
+    // input handler kept for non-movement interactions; movement is handled in update()
+    void handleEvent(SDL_Event &event, const MapManager &map);
 
-    void setPosition(int row, int col);
+    // continuous pixel movement, called every frame from PlayScene::update
+    void update(const Uint8* keystate, float deltaTime, const MapManager &map);
+
+    // draw the player at its current pixel position; the scene provides map offsets
+    void render(SDL_Renderer *renderer, int offsetX, int offsetY);
+
+    // set logical tile location and optionally supply tile size to position pixel coordinates
+    void setPosition(int row, int col, int tileSize);
     int getRow() const { return row; }
     int getCol() const { return col; }
+
+    // texture management
+    bool loadTexture(SDL_Renderer* renderer);
+    void clean();
 
 private:
     int row;
     int col;
+    float x, y;
+    float speed;
+
+    SDL_Texture* texture = nullptr;
 };

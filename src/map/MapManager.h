@@ -15,6 +15,7 @@ public:
     ~MapManager();
 
     bool load(SDL_Renderer* renderer, const char* backgroundPath, Difficulty difficulty = Difficulty::MEDIUM);
+    void cleanTextures(SDL_Renderer* renderer); // helper for loading/clearing entity textures
     void render(SDL_Renderer* renderer);
     void clean();
     void reset(Difficulty difficulty);
@@ -88,6 +89,10 @@ private:
     bool shadowVisible[ROWS][COLS];
     int torchState[ROWS][COLS];
     SDL_Texture* backgroundTexture = nullptr;
+    // entity icons
+    SDL_Texture* mineTexture = nullptr;
+    SDL_Texture* torchTexture = nullptr;
+    SDL_Texture* goalTexture = nullptr;
 
     int startRow = 0;
     int startCol = 0;
