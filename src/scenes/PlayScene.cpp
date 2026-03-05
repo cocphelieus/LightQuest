@@ -5,11 +5,7 @@
 
 namespace
 {
-#if defined(LQ_ENABLE_TESTER)
     constexpr bool kTesterEnabledBuild = true;
-#else
-    constexpr bool kTesterEnabledBuild = false;
-#endif
 }
 
 void PlayScene::syncTesterOverlay()

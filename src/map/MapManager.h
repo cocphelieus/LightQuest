@@ -88,6 +88,7 @@ private:
     bool visible[ROWS][COLS];
     bool shadowVisible[ROWS][COLS];
     int torchState[ROWS][COLS];
+    bool safePath[ROWS][COLS];
     SDL_Texture* backgroundTexture = nullptr;
     // entity icons
     SDL_Texture* mineTexture = nullptr;
@@ -103,6 +104,7 @@ private:
     Uint32 hintUntilTick = 0;
     bool testerRevealMines = false;
     bool testerRevealTorches = false;
+    Difficulty currentDifficulty = Difficulty::MEDIUM;
 
     void initializeMap();
     void placeRandomTiles(int tileType, int count);
@@ -124,4 +126,6 @@ private:
     void buildFixedTorchNetwork(Difficulty difficulty);
     bool findNearestUnresolvedTorch(int fromRow, int fromCol, int& outRow, int& outCol) const;
     bool findNextUnresolvedTorch(int fromRow, int fromCol, int& outRow, int& outCol) const;
+    int countAdjacentMines(int row, int col) const;
+    bool createsDenseMineCluster(int row, int col) const;
 };

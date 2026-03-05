@@ -2,14 +2,6 @@
 
 echo Building LightQuest...
 
-set "TESTER_DEFINE="
-if "%ENABLE_TESTER%"=="1" (
-    echo Tester mode: ON
-    set "TESTER_DEFINE=-DLQ_ENABLE_TESTER"
-) else (
-    echo Tester mode: OFF
-)
-
 g++ ^
 src/main.cpp ^
 src/core/Game.cpp ^
@@ -22,7 +14,6 @@ src/scenes/PlayScene.cpp ^
 src/map/MapManager.cpp ^
 src/entities/Player.cpp ^
 src/core/QuestionManager.cpp ^
-%TESTER_DEFINE% ^
 -o LightQuest.exe ^
 -lmingw32 ^
 -lSDL2main ^
@@ -40,4 +31,5 @@ if %errorlevel% neq 0 (
 
 echo.
 echo Build successful!
+echo Chay: LightQuest.exe (Nhan T trong game de hien chi tiet)
 pause
