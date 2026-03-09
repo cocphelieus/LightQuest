@@ -19,6 +19,7 @@ public:
     bool getHovered() const { return isHovered; }
 
 private:
+    SDL_Rect baseRect;
     SDL_Rect rect;
     SDL_Texture* texture = nullptr;
     std::string imagePath;

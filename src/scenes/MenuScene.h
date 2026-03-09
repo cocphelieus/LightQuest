@@ -3,6 +3,7 @@
 #include "../core/Button.h"
 #include <vector>
 #include <memory>
+#include <string>
 
 enum class MenuState {
     MAIN_MENU,
@@ -13,6 +14,11 @@ enum class MenuState {
 
 class MenuScene {
 public:
+    struct RankingEntry {
+        int seconds = 0;
+        std::string timestamp;
+    };
+
     MenuScene();
     ~MenuScene();
     
@@ -22,10 +28,14 @@ public:
     void render(SDL_Renderer* renderer);
     void clean();
     void resetToMain();
+    void refreshRankings();
     
     MenuState getState() const { return currentState; }
 
 private:
+    void mapMouseToLogical(int inX, int inY, int& outX, int& outY) const;
+
+    SDL_Renderer* rendererRef = nullptr;
     SDL_Texture* backgroundTexture = nullptr;
     std::vector<std::unique_ptr<Button>> buttons;
     MenuState currentState = MenuState::MAIN_MENU;
@@ -56,9 +66,16 @@ private:
 
     // Quit confirmation overlay
     SDL_Texture* quitTexture = nullptr;
+    SDL_Texture* quitPanelTexture = nullptr;
     std::unique_ptr<Button> overlayYesButton;
     std::unique_ptr<Button> overlayNoButton;
+    void* quitTitleFontRaw = nullptr;
+    void* quitBodyFontRaw = nullptr;
+    bool ttfInitByScene = false;
     
     void initializeButtons();
     void handleButtonClick(int buttonIndex);
+    void renderTextCentered(SDL_Renderer* renderer, void* fontRaw, const char* text, const SDL_Rect& rect, SDL_Color color);
+    void renderTextLeft(SDL_Renderer* renderer, void* fontRaw, const char* text, const SDL_Rect& rect, SDL_Color color);
+    std::vector<RankingEntry> localRankings;
 };

@@ -31,5 +31,5 @@ if %errorlevel% neq 0 (
 
 echo.
 echo Build successful!
-echo Chay: LightQuest.exe (Nhan T trong game de hien chi tiet)
+echo Run: LightQuest.exe
 pause

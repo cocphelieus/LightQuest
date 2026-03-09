@@ -50,7 +50,7 @@ void LoadingScene::render(SDL_Renderer* renderer) {
 void LoadingScene::renderProgressBar(SDL_Renderer* renderer) {
     int centerX = screenWidth / 2;
     int centerY = screenHeight - 100;
-    
+
     // Simple loading dots
     int numDots = 8;
     int dotRadius = 25;
@@ -62,7 +62,7 @@ void LoadingScene::renderProgressBar(SDL_Renderer* renderer) {
         
         drawFilledCircle(renderer, x, y, 3, 200, 200, 200, 150);
     }
-    
+
     // Progress bar - simple and clean
     SDL_Rect bgBar;
     bgBar.x = centerX - barWidth / 2;
@@ -74,7 +74,6 @@ void LoadingScene::renderProgressBar(SDL_Renderer* renderer) {
     SDL_SetRenderDrawColor(renderer, 50, 50, 50, 180);
     SDL_RenderFillRect(renderer, &bgBar);
     
-    // Progress fill
     SDL_Rect progressBar;
     progressBar.x = bgBar.x + 1;
     progressBar.y = bgBar.y + 1;

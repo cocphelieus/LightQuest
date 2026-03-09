@@ -18,7 +18,7 @@ public:
     void cleanTextures(SDL_Renderer* renderer); // helper for loading/clearing entity textures
     void render(SDL_Renderer* renderer);
     void clean();
-    void reset(Difficulty difficulty);
+    void reset(Difficulty difficulty, int campaignStage = 0);
 
     int getTile(int row, int col) const;
     bool isWall(int row, int col) const;
@@ -40,6 +40,8 @@ public:
     void hintNearestTorch(int fromRow, int fromCol);
     void clearTorchHint();
     bool hasAnyUnresolvedTorch() const;
+    int getTotalTorchCount() const;
+    int getSolvedTorchCount() const;
     bool isKnown(int row, int col) const;
     bool isDetailVisible(int row, int col) const;
     void setTesterOverlay(bool revealMines, bool revealTorches);
@@ -104,7 +106,9 @@ private:
     Uint32 hintUntilTick = 0;
     bool testerRevealMines = false;
     bool testerRevealTorches = false;
+    bool clearMinesOnReveal = false;
     Difficulty currentDifficulty = Difficulty::MEDIUM;
+    int currentCampaignStage = 0;
 
     void initializeMap();
     void placeRandomTiles(int tileType, int count);
@@ -123,9 +127,10 @@ private:
     void revealRandomCluster(int centerRow, int centerCol, int seeds, int maxStep);
     void revealInitialArea();
     void ensureStarterTorch();
-    void buildFixedTorchNetwork(Difficulty difficulty);
+    void buildFixedTorchNetwork(Difficulty difficulty, int campaignStage);
     bool findNearestUnresolvedTorch(int fromRow, int fromCol, int& outRow, int& outCol) const;
     bool findNextUnresolvedTorch(int fromRow, int fromCol, int& outRow, int& outCol) const;
     int countAdjacentMines(int row, int col) const;
+    bool hasMineWithinRadius(int row, int col, int radius) const;
     bool createsDenseMineCluster(int row, int col) const;
 };

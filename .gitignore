@@ -11,3 +11,6 @@ third_party/bin/*.dll
 # OS
 Thumbs.db
 .DS_Store
+
+# local build overrides (do not ship)
+local/Tester.local.h

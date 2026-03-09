@@ -1,11 +1,61 @@
 #include "PlayScene.h"
+#include "../config/TesterConfig.h"
 #include <iostream>
 #include <cstdlib>
 #include <cstdio>
+#include <SDL2/SDL_image.h>
+
+#if __has_include(<SDL2/SDL_ttf.h>)
+#include <SDL2/SDL_ttf.h>
+#define LIGHTQUEST_HAS_SDL_TTF 1
+#elif __has_include(<SDL_ttf.h>)
+#include <SDL_ttf.h>
+#define LIGHTQUEST_HAS_SDL_TTF 1
+#else
+#define LIGHTQUEST_HAS_SDL_TTF 0
+#endif
 
 namespace
 {
-    constexpr bool kTesterEnabledBuild = true;
+    const char* difficultyLabel(Difficulty difficulty)
+    {
+        if (difficulty == Difficulty::EASY)
+            return "EASY";
+        if (difficulty == Difficulty::MEDIUM)
+            return "MEDIUM";
+        return "HARD";
+    }
+
+    SDL_Color difficultyColor(Difficulty difficulty)
+    {
+        if (difficulty == Difficulty::EASY)
+            return SDL_Color{110, 225, 140, 255};
+        if (difficulty == Difficulty::MEDIUM)
+            return SDL_Color{245, 200, 95, 255};
+        return SDL_Color{235, 95, 95, 255};
+    }
+
+#if LIGHTQUEST_HAS_SDL_TTF
+    void renderTextLine(SDL_Renderer* renderer, TTF_Font* font, const char* text, int x, int y, SDL_Color color)
+    {
+        if (!renderer || !font || !text)
+            return;
+
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text, color);
+        if (!surface)
+            return;
+
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (texture)
+        {
+            SDL_Rect dst = {x, y, surface->w, surface->h};
+            SDL_RenderCopy(renderer, texture, nullptr, &dst);
+            SDL_DestroyTexture(texture);
+        }
+
+        SDL_FreeSurface(surface);
+    }
+#endif
 }
 
 void PlayScene::syncTesterOverlay()
@@ -33,21 +83,22 @@ void PlayScene::openTesterPanel()
             statusText,
             sizeof(statusText),
             "TESTER PANEL\n\n"
-            "Trang thai hien tai:\n"
-            "- Hien min: %s\n"
-            "- Hien duoc: %s\n"
-            "- Hien dap an cau hoi: %s\n\n"
-            "Chon nut de bat/tat tung muc.",
-            testerShowMines ? "BAT" : "TAT",
-            testerShowTorches ? "BAT" : "TAT",
-            testerShowAnswer ? "BAT" : "TAT"
+            "Current status:\n"
+            "- Show mines: %s\n"
+            "- Show torches: %s\n"
+            "- Show question answer: %s\n\n"
+            "Select a button to toggle options or skip stage.",
+            testerShowMines ? "ON" : "OFF",
+            testerShowTorches ? "ON" : "OFF",
+            testerShowAnswer ? "ON" : "OFF"
         );
 
-        SDL_MessageBoxButtonData buttons[4] = {
-            {0, 0, "Toggle min"},
-            {0, 1, "Toggle duoc"},
-            {0, 2, "Toggle dap an"},
-            {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 3, "Dong"}
+        SDL_MessageBoxButtonData buttons[5] = {
+            {0, 0, "Toggle mines"},
+            {0, 1, "Toggle torches"},
+            {0, 2, "Toggle answer"},
+            {0, 3, "Next stage (goal)"},
+            {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 4, "Close"}
         };
 
         SDL_MessageBoxData boxdata;
@@ -55,7 +106,7 @@ void PlayScene::openTesterPanel()
         boxdata.window = nullptr;
         boxdata.title = "Tester";
         boxdata.message = statusText;
-        boxdata.numbuttons = 4;
+        boxdata.numbuttons = 5;
         boxdata.buttons = buttons;
         boxdata.colorScheme = nullptr;
 
@@ -69,6 +120,12 @@ void PlayScene::openTesterPanel()
             testerShowTorches = !testerShowTorches;
         else if (buttonid == 2)
             testerShowAnswer = !testerShowAnswer;
+        else if (buttonid == 3)
+        {
+            outcome = PlayOutcome::CLEARED;
+            returnToMenu = true;
+            keepOpen = false;
+        }
         else
             keepOpen = false;
 
@@ -83,7 +140,7 @@ PlayScene::PlayScene()
 void PlayScene::startLevel(Difficulty newDifficulty)
 {
     difficulty = newDifficulty;
-    map.reset(difficulty);
+    map.reset(difficulty, campaignStage);
     map.activateStarterTorch();
     player.setPosition(map.getStartRow(), map.getStartCol(), map.getTileSize());
     checkpointRow = map.getStartRow();
@@ -94,6 +151,8 @@ void PlayScene::startLevel(Difficulty newDifficulty)
     testerShowAnswer = false;
     syncTesterOverlay();
     outcome = PlayOutcome::NONE;
+    levelStartTick = SDL_GetTicks();
+    levelIntroUntilTick = levelStartTick + 2200;
 }
 
 void PlayScene::load(SDL_Renderer* renderer)
@@ -103,6 +162,25 @@ void PlayScene::load(SDL_Renderer* renderer)
 
     std::cout << "PlayScene Loaded\n";
     map.load(renderer, "assets/images/background/map_level_1.png", difficulty);
+
+#if LIGHTQUEST_HAS_SDL_TTF
+    if (!uiFontRaw)
+    {
+        if (TTF_WasInit() == 0)
+        {
+            if (TTF_Init() == 0)
+                ttfInitByScene = true;
+        }
+
+        if (TTF_WasInit() != 0)
+        {
+            TTF_Font* opened = TTF_OpenFont("assets/fonts/Times New Roman.ttf", 22);
+            if (!opened)
+                opened = TTF_OpenFont("assets/fonts/Times New Roman.ttf", 18);
+            uiFontRaw = opened;
+        }
+    }
+#endif
 
     // prepare player graphics
     player.clean();
@@ -115,25 +193,46 @@ void PlayScene::load(SDL_Renderer* renderer)
     {
         SDL_ShowSimpleMessageBox(
             SDL_MESSAGEBOX_WARNING,
-            "Canh bao",
-            "Khong doc duoc data/question.txt. He thong dang dung bo cau hoi du phong.",
+            "Warning",
+            "Could not read data/question.txt. Using fallback questions.",
             nullptr
         );
     }
 
-    char introMessage[512];
-    std::snprintf(
-        introMessage,
-        sizeof(introMessage),
-        "WASD/Phim mui ten de di chuyen.\nBat dau chi mo rat it map + 1 duoc khoi dong chua mo.\nCac duoc duoc dat co dinh tu dau man.\nBan phai tu do tim duoc tiep theo.\nDung thi mo duoc, sai thi duoc bi khoa.\nMuc tieu man nay: toi dich de chien thang."
-    );
+    if (campaignStage == 0)
+    {
+        const char* introMessage =
+            "CONTROLS\n"
+            "- WASD / Arrow keys: Move\n"
+            "- ESC: Return to menu\n"
+            "\n"
+            "TORCH RULES\n"
+            "- Touch a torch: Open a question\n"
+            "- Correct answer: Reveal a safe path\n"
+            "- Wrong answer: Torch is locked\n"
+            "\n"
+            "OBJECTIVE\n"
+            "- Activate torches and find the route to the goal\n"
+            "\n"
+            "QUICK TIP\n"
+            "- Move carefully, watch the HUD, and reveal the map step by step.";
 
-    SDL_ShowSimpleMessageBox(
-        SDL_MESSAGEBOX_INFORMATION,
-        "LightQuest",
-        introMessage,
-        nullptr
-    );
+        SDL_MessageBoxButtonData buttons[] = {
+            {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "START"}
+        };
+
+        SDL_MessageBoxData boxData;
+        boxData.flags = SDL_MESSAGEBOX_INFORMATION;
+        boxData.window = nullptr;
+        boxData.title = "LIGHTQUEST - GUIDE";
+        boxData.message = introMessage;
+        boxData.numbuttons = 1;
+        boxData.buttons = buttons;
+        boxData.colorScheme = nullptr;
+
+        int buttonId = 0;
+        SDL_ShowMessageBox(&boxData, &buttonId);
+    }
 }
 
 void PlayScene::handleEvent(SDL_Event &event)
@@ -175,24 +274,12 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
     if (map.isMine(row, col))
     {
         outcome = PlayOutcome::FAILED;
-        SDL_ShowSimpleMessageBox(
-            SDL_MESSAGEBOX_ERROR,
-            "That bai",
-            "Ban dam trung min. Thu lai tu dau!",
-            nullptr
-        );
         returnToMenu = true;
         return;
     }
 
     if (map.isGoal(row, col))
     {
-        SDL_ShowSimpleMessageBox(
-            SDL_MESSAGEBOX_INFORMATION,
-            "Chuc mung",
-            "Ban da den dich va chien thang!",
-            nullptr
-        );
         outcome = PlayOutcome::CLEARED;
         returnToMenu = true;
         return;
@@ -219,7 +306,7 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
         {
             int questionIndex = questionManager.randomIndex();
             bool showAnswer = kTesterEnabledBuild && testerShowAnswer;
-            correct = questionManager.askQuestion(questionIndex, showAnswer);
+            correct = questionManager.askQuestion(questionIndex, rendererRef, showAnswer);
             answeredQuestion = true;
         }
 
@@ -229,8 +316,8 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
             player.setPosition(oldRow, oldCol, map.getTileSize());
             SDL_ShowSimpleMessageBox(
                 SDL_MESSAGEBOX_WARNING,
-                "Khong co cau hoi",
-                "Duoc nay bi khoa vi he thong cau hoi khong hop le.",
+                "No Questions",
+                "This torch is locked because the question system is invalid.",
                 nullptr
             );
             return;
@@ -283,11 +370,170 @@ void PlayScene::render(SDL_Renderer *renderer)
 
     map.render(renderer);
     player.render(renderer, offsetX, offsetY);
+    renderOverlay(renderer);
+}
+
+bool PlayScene::playDeathSequence(SDL_Renderer* renderer)
+{
+    if (!renderer)
+        return false;
+
+    SDL_Texture* explosionTexture = IMG_LoadTexture(renderer, "assets/images/entities/no.gif");
+    map.setTesterOverlay(true, testerShowTorches);
+
+    Uint32 startedAt = SDL_GetTicks();
+    const Uint32 durationMs = 1400;
+    bool shouldQuit = false;
+
+    int tileSize = map.getTileSize();
+    int centerX = map.getRenderOffsetX() + player.getCol() * tileSize + tileSize / 2;
+    int centerY = map.getRenderOffsetY() + player.getRow() * tileSize + tileSize / 2;
+
+    while (SDL_GetTicks() - startedAt < durationMs)
+    {
+        SDL_Event event;
+        while (SDL_PollEvent(&event))
+        {
+            if (event.type == SDL_QUIT)
+            {
+                shouldQuit = true;
+                break;
+            }
+        }
+
+        if (shouldQuit)
+            break;
+
+        Uint32 elapsed = SDL_GetTicks() - startedAt;
+        float t = static_cast<float>(elapsed) / static_cast<float>(durationMs);
+        if (t < 0.0f)
+            t = 0.0f;
+        if (t > 1.0f)
+            t = 1.0f;
+
+        map.render(renderer);
+        player.render(renderer, map.getRenderOffsetX(), map.getRenderOffsetY());
+
+        // Flash the screen to emphasize death impact.
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        Uint8 flashAlpha = static_cast<Uint8>(110.0f * (1.0f - t));
+        SDL_SetRenderDrawColor(renderer, 255, 80, 40, flashAlpha);
+        SDL_Rect full = {0, 0, 1280, 720};
+        SDL_RenderFillRect(renderer, &full);
+
+        int explosionSize = static_cast<int>(90.0f + 160.0f * t);
+        SDL_Rect explosionRect = {
+            centerX - explosionSize / 2,
+            centerY - explosionSize / 2,
+            explosionSize,
+            explosionSize
+        };
+
+        if (explosionTexture)
+        {
+            Uint8 alpha = static_cast<Uint8>(255.0f - 180.0f * t);
+            SDL_SetTextureAlphaMod(explosionTexture, alpha);
+            SDL_RenderCopy(renderer, explosionTexture, nullptr, &explosionRect);
+            SDL_SetTextureAlphaMod(explosionTexture, 255);
+        }
+        else
+        {
+            SDL_SetRenderDrawColor(renderer, 255, 145, 45, 190);
+            SDL_RenderFillRect(renderer, &explosionRect);
+        }
+
+        SDL_RenderPresent(renderer);
+        SDL_Delay(16);
+    }
+
+    if (explosionTexture)
+        SDL_DestroyTexture(explosionTexture);
+
+    if (!shouldQuit)
+    {
+        SDL_ShowSimpleMessageBox(
+            SDL_MESSAGEBOX_ERROR,
+            "Defeat",
+            "You stepped on a mine. All mine positions were revealed.",
+            nullptr
+        );
+    }
+
+    syncTesterOverlay();
+    return shouldQuit;
 }
 
 void PlayScene::clean()
 {
     map.clean();
     player.clean();
+#if LIGHTQUEST_HAS_SDL_TTF
+    if (uiFontRaw)
+    {
+        TTF_CloseFont(static_cast<TTF_Font*>(uiFontRaw));
+        uiFontRaw = nullptr;
+    }
+    if (ttfInitByScene)
+    {
+        TTF_Quit();
+        ttfInitByScene = false;
+    }
+#endif
     rendererRef = nullptr;
+}
+
+void PlayScene::renderOverlay(SDL_Renderer* renderer)
+{
+    if (!renderer)
+        return;
+
+    SDL_Rect panel = {12, 20, 320, 66};
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 8, 10, 18, 160);
+    SDL_RenderFillRect(renderer, &panel);
+    SDL_SetRenderDrawColor(renderer, 210, 210, 220, 170);
+    SDL_RenderDrawRect(renderer, &panel);
+
+    SDL_Color diffColor = difficultyColor(difficulty);
+
+    Uint32 ticksNow = SDL_GetTicks();
+    int elapsedSec = campaignElapsedSeconds;
+    if (elapsedSec < 0)
+        elapsedSec = 0;
+
+#if LIGHTQUEST_HAS_SDL_TTF
+    if (uiFontRaw)
+    {
+        TTF_Font* font = static_cast<TTF_Font*>(uiFontRaw);
+        char line1[220];
+        char line2[220];
+        std::snprintf(line1, sizeof(line1), "STAGE %d  |  DIFFICULTY: %s", campaignStage + 1, difficultyLabel(difficulty));
+        std::snprintf(line2, sizeof(line2), "TIME: %d SEC", elapsedSec);
+
+        renderTextLine(renderer, font, line1, 22, 26, diffColor);
+        renderTextLine(renderer, font, line2, 22, 50, SDL_Color{236, 236, 236, 255});
+
+        char controlTip[200];
+        std::snprintf(controlTip, sizeof(controlTip), "WASD/Arrow keys: Move  |  ESC: Menu");
+        renderTextLine(renderer, font, controlTip, 24, 680, SDL_Color{210, 210, 210, 220});
+
+        if (ticksNow < levelIntroUntilTick)
+        {
+            Uint32 remain = levelIntroUntilTick - ticksNow;
+            int alpha = 70 + static_cast<int>((remain * 120U) / 2200U);
+            if (alpha > 190)
+                alpha = 190;
+
+            SDL_Rect introBox = {350, 18, 580, 64};
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, static_cast<Uint8>(alpha));
+            SDL_RenderFillRect(renderer, &introBox);
+            SDL_SetRenderDrawColor(renderer, diffColor.r, diffColor.g, diffColor.b, 220);
+            SDL_RenderDrawRect(renderer, &introBox);
+
+            char introText[180];
+            std::snprintf(introText, sizeof(introText), "STAGE %d - %s", campaignStage + 1, difficultyLabel(difficulty));
+            renderTextLine(renderer, font, introText, 540, 38, SDL_Color{255, 255, 255, 255});
+        }
+    }
+#endif
 }

@@ -1,4 +1,5 @@
-    #include "MapManager.h"
+#include "MapManager.h"
+#include "../config/TesterConfig.h"
 #include <SDL2/SDL_image.h>
 #include <cstdlib>
 #include <ctime>
@@ -7,8 +8,6 @@
 #include <limits>
 #include <algorithm>
 #include <random>
-
-constexpr bool kTesterEnabledBuild = true;
 
 MapManager::MapManager()
 {
@@ -80,7 +79,7 @@ void MapManager::ensureStarterTorch()
                 continue;
             }
 
-            if ((map[r][c] == FLOOR || map[r][c] == MINE) && distance < bestDistance)
+            if (map[r][c] == FLOOR && distance < bestDistance)
             {
                 bestDistance = distance;
                 bestRow = r;
@@ -99,7 +98,7 @@ void MapManager::ensureStarterTorch()
         if (fallbackRow == goalRow && fallbackCol == goalCol)
             return;
 
-        if (map[fallbackRow][fallbackCol] == FLOOR || map[fallbackRow][fallbackCol] == MINE)
+        if (map[fallbackRow][fallbackCol] == FLOOR)
         {
             map[fallbackRow][fallbackCol] = TORCH;
             torchState[fallbackRow][fallbackCol] = TORCH_NOT_USED;
@@ -124,8 +123,6 @@ void MapManager::placeRandomTiles(int tileType, int count)
             {
                 if ((r == startRow && c == startCol) || (r == goalRow && c == goalCol))
                     continue;
-                if (safePath[r][c])
-                    continue;
                 if (map[r][c] != FLOOR)
                     continue;
 
@@ -135,48 +132,6 @@ void MapManager::placeRandomTiles(int tileType, int count)
 
         if (candidates.empty())
             return;
-
-        static std::mt19937 mineRng(static_cast<unsigned int>(std::time(nullptr)) + 811U);
-        std::shuffle(candidates.begin(), candidates.end(), mineRng);
-
-        auto rowMineCount = [this](int row) -> int
-        {
-            int countMines = 0;
-            for (int cc = 0; cc < COLS; cc++)
-            {
-                if (map[row][cc] == MINE)
-                    countMines++;
-            }
-            return countMines;
-        };
-
-        auto colMineCount = [this](int col) -> int
-        {
-            int countMines = 0;
-            for (int rr = 0; rr < ROWS; rr++)
-            {
-                if (map[rr][col] == MINE)
-                    countMines++;
-            }
-            return countMines;
-        };
-
-        auto nearestTorchDistance = [this](int row, int col) -> int
-        {
-            int best = ROWS + COLS;
-            for (int r = 0; r < ROWS; r++)
-            {
-                for (int c = 0; c < COLS; c++)
-                {
-                    if (map[r][c] != TORCH)
-                        continue;
-                    int d = std::abs(r - row) + std::abs(c - col);
-                    if (d < best)
-                        best = d;
-                }
-            }
-            return best;
-        };
 
         const int zoneRows = 3;
         const int zoneCols = 4;
@@ -191,108 +146,86 @@ void MapManager::placeRandomTiles(int tileType, int count)
             return zr * zoneCols + zc;
         };
 
-        auto zoneMineCount = [this, getZoneIndex](int row, int col) -> int
+        int zoneMineCount[zoneRows * zoneCols] = {0};
+        for (int r = 0; r < ROWS; r++)
         {
-            int zone = getZoneIndex(row, col);
-            int countMines = 0;
-            for (int rr = 0; rr < ROWS; rr++)
+            for (int c = 0; c < COLS; c++)
             {
-                for (int cc = 0; cc < COLS; cc++)
-                {
-                    if (getZoneIndex(rr, cc) != zone)
-                        continue;
-                    if (map[rr][cc] == MINE)
-                        countMines++;
-                }
+                if (map[r][c] == MINE)
+                    zoneMineCount[getZoneIndex(r, c)]++;
             }
-            return countMines;
-        };
+        }
 
-        auto nearbyMineInRadius2 = [this](int row, int col) -> int
-        {
-            int countMines = 0;
-            for (int dr = -2; dr <= 2; dr++)
-            {
-                for (int dc = -2; dc <= 2; dc++)
-                {
-                    if (dr == 0 && dc == 0)
-                        continue;
-                    if (std::abs(dr) + std::abs(dc) > 2)
-                        continue;
-
-                    int rr = row + dr;
-                    int cc = col + dc;
-                    if (rr < 0 || rr >= ROWS || cc < 0 || cc >= COLS)
-                        continue;
-
-                    if (map[rr][cc] == MINE)
-                        countMines++;
-                }
-            }
-            return countMines;
-        };
+        static std::mt19937 mineRng(static_cast<unsigned int>(std::time(nullptr)) + 811U);
+        std::uniform_int_distribution<int> tieBreaker(0, 7);
 
         int placed = 0;
-        auto placeByRule = [&](int maxAdjacentMines, int preferredTorchDistanceMax) -> void
+        while (placed < count)
         {
-            while (placed < count)
+            int bestIndex = -1;
+            int bestScore = std::numeric_limits<int>::min();
+
+            for (size_t i = 0; i < candidates.size(); i++)
             {
-                int bestIndex = -1;
-                int bestScore = std::numeric_limits<int>::max();
+                int r = candidates[i].first;
+                int c = candidates[i].second;
 
-                for (size_t i = 0; i < candidates.size(); i++)
+                if (map[r][c] != FLOOR)
+                    continue;
+
+                int startDistance = std::abs(r - startRow) + std::abs(c - startCol);
+                int goalDistance = std::abs(r - goalRow) + std::abs(c - goalCol);
+                if (startDistance <= 2 || goalDistance <= 1)
+                    continue;
+
+                // Absolute non-adjacent rule: no mine can touch another mine.
+                if (hasMineWithinRadius(r, c, 1))
+                    continue;
+
+                int nearestMineDistance = ROWS + COLS;
+                for (int rr = 0; rr < ROWS; rr++)
                 {
-                    int r = candidates[i].first;
-                    int c = candidates[i].second;
-
-                    if (map[r][c] != FLOOR)
-                        continue;
-
-                    int adjacent = countAdjacentMines(r, c);
-                    if (adjacent > maxAdjacentMines)
-                        continue;
-
-                    if (createsDenseMineCluster(r, c))
-                        continue;
-
-                    int torchDistance = nearestTorchDistance(r, c);
-                    if (preferredTorchDistanceMax >= 0 && torchDistance > preferredTorchDistanceMax)
-                        continue;
-
-                    int score = 0;
-                    score += rowMineCount(r) * 18;
-                    score += colMineCount(c) * 16;
-                    score += zoneMineCount(r, c) * 24;
-                    score += nearbyMineInRadius2(r, c) * 22;
-                    if (torchDistance <= 2)
-                        score += 6;
-                    score += std::rand() % 11;
-
-                    if (score < bestScore)
+                    for (int cc = 0; cc < COLS; cc++)
                     {
-                        bestScore = score;
-                        bestIndex = static_cast<int>(i);
+                        if (map[rr][cc] != MINE)
+                            continue;
+                        int distance = std::abs(rr - r) + std::abs(cc - c);
+                        if (distance < nearestMineDistance)
+                            nearestMineDistance = distance;
                     }
                 }
+                if (nearestMineDistance == ROWS + COLS)
+                    nearestMineDistance = 6;
 
-                if (bestIndex < 0)
-                    break;
+                int zone = getZoneIndex(r, c);
+                int score = 0;
+                score += nearestMineDistance * 40;
+                score -= zoneMineCount[zone] * 28;
+                score -= tieBreaker(mineRng);
 
-                int r = candidates[static_cast<size_t>(bestIndex)].first;
-                int c = candidates[static_cast<size_t>(bestIndex)].second;
-                map[r][c] = MINE;
-                placed++;
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestIndex = static_cast<int>(i);
+                }
             }
-        };
 
-        placeByRule(0, 4);
-        placeByRule(0, -1);
+            if (bestIndex < 0)
+                break;
+
+            int r = candidates[static_cast<size_t>(bestIndex)].first;
+            int c = candidates[static_cast<size_t>(bestIndex)].second;
+            map[r][c] = MINE;
+            zoneMineCount[getZoneIndex(r, c)]++;
+            placed++;
+        }
+
         return;
     }
 
     int placed = 0;
     int attempts = 0;
-    int maxAttempts = ROWS * COLS * 40;
+    int maxAttempts = ROWS * COLS * 200;
 
     while (placed < count && attempts < maxAttempts)
     {
@@ -305,9 +238,6 @@ void MapManager::placeRandomTiles(int tileType, int count)
 
         if (tileType == MINE)
         {
-            if (safePath[r][c])
-                continue;
-
             int startDistance = std::abs(r - startRow) + std::abs(c - startCol);
             int goalDistance = std::abs(r - goalRow) + std::abs(c - goalCol);
 
@@ -315,10 +245,7 @@ void MapManager::placeRandomTiles(int tileType, int count)
                 continue;
 
             int nearbyMines = countAdjacentMines(r, c);
-            if (nearbyMines >= 2)
-                continue;
-
-            if (nearbyMines == 1 && (std::rand() % 100) < 55)
+            if (nearbyMines >= 3)
                 continue;
 
             if (createsDenseMineCluster(r, c))
@@ -346,9 +273,6 @@ void MapManager::placeRandomTiles(int tileType, int count)
                 continue;
             if (map[r][c] != FLOOR)
                 continue;
-            if (tileType == MINE && safePath[r][c])
-                continue;
-
             fallbackCandidates.push_back({r, c});
         }
     }
@@ -398,7 +322,7 @@ void MapManager::placeRandomTiles(int tileType, int count)
             if (tileType == MINE)
             {
                 int nearbyMines = countAdjacentMines(r, c);
-                if (nearbyMines >= 2)
+                if (nearbyMines >= 3)
                     continue;
                 if (createsDenseMineCluster(r, c))
                     continue;
@@ -433,7 +357,7 @@ void MapManager::placeRandomTiles(int tileType, int count)
 
         if (tileType == MINE)
         {
-            if (countAdjacentMines(r, c) >= 3)
+            if (countAdjacentMines(r, c) >= 4)
                 continue;
             if (createsDenseMineCluster(r, c))
                 continue;
@@ -486,8 +410,18 @@ void MapManager::placeMinesNearTorches(int count)
         return countMines;
     };
 
-    auto torchHasNearbyMine = [this](int row, int col) -> bool
+    auto edgeDistance = [this](int row, int col) -> int
     {
+        int dTop = row;
+        int dBottom = ROWS - 1 - row;
+        int dLeft = col;
+        int dRight = COLS - 1 - col;
+        return std::min(std::min(dTop, dBottom), std::min(dLeft, dRight));
+    };
+
+    auto torchNearbyMineCount = [this](int row, int col) -> int
+    {
+        int nearby = 0;
         for (int dr = -2; dr <= 2; dr++)
         {
             for (int dc = -2; dc <= 2; dc++)
@@ -502,39 +436,51 @@ void MapManager::placeMinesNearTorches(int count)
                     continue;
 
                 if (map[rr][cc] == MINE)
-                    return true;
+                    nearby++;
             }
         }
-        return false;
+        return nearby;
     };
 
-    auto isValidMineCell = [this](int row, int col, bool relaxed) -> bool
+    auto canPlaceMine = [this](int row, int col, int maxAdjacent) -> bool
     {
         if (row < 0 || row >= ROWS || col < 0 || col >= COLS)
             return false;
         if ((row == startRow && col == startCol) || (row == goalRow && col == goalCol))
             return false;
-        if (safePath[row][col])
-            return false;
         if (map[row][col] != FLOOR)
             return false;
         if (createsDenseMineCluster(row, col))
             return false;
-
-        int adjacent = countAdjacentMines(row, col);
-        if (!relaxed && adjacent > 0)
+        if (countAdjacentMines(row, col) > maxAdjacent)
             return false;
-        if (relaxed && adjacent > 1)
-            return false;
-
         return true;
     };
 
-    auto placeMineNearTorch = [&](int torchRow, int torchCol, bool relaxed) -> bool
+    auto scoreCell = [&](int rr, int cc, int distance, bool strictPass) -> int
+    {
+        int score = 0;
+        score += distance * 16; // keep mines close to torches
+        score += rowMineCount(rr) * 10;
+        score += colMineCount(cc) * 9;
+        score += (countAdjacentMines(rr, cc) * 14);
+
+        int edge = edgeDistance(rr, cc);
+        if (edge == 0)
+            score += strictPass ? 120 : 70;
+        else if (edge == 1)
+            score += strictPass ? 40 : 22;
+
+        score += std::rand() % 11;
+        return score;
+    };
+
+    auto placeOneNearTorch = [&](int torchRow, int torchCol, bool strictPass) -> bool
     {
         int bestRow = -1;
         int bestCol = -1;
         int bestScore = std::numeric_limits<int>::max();
+        int maxAdjacent = strictPass ? 2 : 4;
 
         for (int dr = -2; dr <= 2; dr++)
         {
@@ -547,15 +493,13 @@ void MapManager::placeMinesNearTorches(int count)
                 int rr = torchRow + dr;
                 int cc = torchCol + dc;
 
-                if (!isValidMineCell(rr, cc, relaxed))
+                if (edgeDistance(rr, cc) == 0)
                     continue;
 
-                int score = 0;
-                score += rowMineCount(rr) * 16;
-                score += colMineCount(cc) * 14;
-                score += distance * 8;
-                score += std::rand() % 9;
+                if (!canPlaceMine(rr, cc, maxAdjacent))
+                    continue;
 
+                int score = scoreCell(rr, cc, distance, strictPass);
                 if (score < bestScore)
                 {
                     bestScore = score;
@@ -565,167 +509,105 @@ void MapManager::placeMinesNearTorches(int count)
             }
         }
 
-        if (bestRow < 0 || bestCol < 0)
+        if (bestRow < 0)
             return false;
 
         map[bestRow][bestCol] = MINE;
         return true;
     };
 
+    int targetCount = count;
     int placed = 0;
-    for (size_t i = 0; i < torchCells.size(); i++)
+
+    // Pass 1: distribute at least one mine near every torch (uniform spread first).
+    for (size_t i = 0; i < torchCells.size() && placed < targetCount; i++)
     {
         int tr = torchCells[i].first;
         int tc = torchCells[i].second;
-        if (torchHasNearbyMine(tr, tc))
+        if (torchNearbyMineCount(tr, tc) > 0)
             continue;
 
-        if (placeMineNearTorch(tr, tc, false) || placeMineNearTorch(tr, tc, true))
+        if (placeOneNearTorch(tr, tc, true) || placeOneNearTorch(tr, tc, false))
             placed++;
     }
 
-    std::vector<std::pair<int, int>> closeCandidates;
-    std::vector<std::pair<int, int>> nearCandidates;
-    closeCandidates.reserve(ROWS * COLS / 2);
-    nearCandidates.reserve(ROWS * COLS / 2);
-
-    bool queued[ROWS][COLS] = {};
-
-    for (int r = 0; r < ROWS; r++)
+    // Pass 2: push each torch toward four nearby mines where possible.
+    for (size_t i = 0; i < torchCells.size() && placed < targetCount; i++)
     {
-        for (int c = 0; c < COLS; c++)
+        int tr = torchCells[i].first;
+        int tc = torchCells[i].second;
+        if (torchNearbyMineCount(tr, tc) >= 4)
+            continue;
+
+        if (placeOneNearTorch(tr, tc, false))
+            placed++;
+    }
+
+    // Pass 2b: enforce at least one nearby mine for torches that still have none.
+    for (size_t i = 0; i < torchCells.size() && placed < targetCount; i++)
+    {
+        int tr = torchCells[i].first;
+        int tc = torchCells[i].second;
+        if (torchNearbyMineCount(tr, tc) > 0)
+            continue;
+
+        if (placeOneNearTorch(tr, tc, false))
+            placed++;
+    }
+
+    // Pass 3: keep filling by selecting torches with lowest nearby mine coverage.
+    int guard = 0;
+    int maxGuard = static_cast<int>(torchCells.size()) * 10 + 32;
+    while (placed < targetCount && guard < maxGuard)
+    {
+        guard++;
+
+        int pickIdx = -1;
+        int pickCoverage = std::numeric_limits<int>::max();
+        int pickGoalDistance = std::numeric_limits<int>::max();
+
+        for (size_t i = 0; i < torchCells.size(); i++)
         {
-            if (map[r][c] != TORCH)
-                continue;
+            int tr = torchCells[i].first;
+            int tc = torchCells[i].second;
+            int coverage = torchNearbyMineCount(tr, tc);
+            int goalDistance = std::abs(goalRow - tr) + std::abs(goalCol - tc);
 
-            for (int dr = -2; dr <= 2; dr++)
+            if (coverage < pickCoverage || (coverage == pickCoverage && goalDistance < pickGoalDistance))
             {
-                for (int dc = -2; dc <= 2; dc++)
-                {
-                    if (dr == 0 && dc == 0)
-                        continue;
-
-                    int distance = std::abs(dr) + std::abs(dc);
-                    if (distance == 0 || distance > 2)
-                        continue;
-
-                    int nr = r + dr;
-                    int nc = c + dc;
-
-                    if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS)
-                        continue;
-                    if ((nr == startRow && nc == startCol) || (nr == goalRow && nc == goalCol))
-                        continue;
-                    if (map[nr][nc] != FLOOR)
-                        continue;
-                    if (safePath[nr][nc])
-                        continue;
-                    if (queued[nr][nc])
-                        continue;
-
-                    queued[nr][nc] = true;
-                    if (distance == 1)
-                        closeCandidates.push_back({nr, nc});
-                    else
-                        nearCandidates.push_back({nr, nc});
-                }
+                pickCoverage = coverage;
+                pickGoalDistance = goalDistance;
+                pickIdx = static_cast<int>(i);
             }
         }
-    }
 
-    if (closeCandidates.empty() && nearCandidates.empty())
-        return;
+        if (pickIdx < 0)
+            break;
 
-    static std::mt19937 rng(static_cast<unsigned int>(std::time(nullptr)) + 101U);
-    std::shuffle(closeCandidates.begin(), closeCandidates.end(), rng);
-    std::shuffle(nearCandidates.begin(), nearCandidates.end(), rng);
+        int tr = torchCells[static_cast<size_t>(pickIdx)].first;
+        int tc = torchCells[static_cast<size_t>(pickIdx)].second;
 
-    int targetCount = count;
-    if (placed > targetCount)
-        targetCount = placed;
-
-    int closeTarget = count / 2;
-    int rowSoftLimit = COLS / 2;
-    int colSoftLimit = ROWS / 2;
-
-    for (size_t i = 0; i < closeCandidates.size() && placed < closeTarget; i++)
-    {
-        int r = closeCandidates[i].first;
-        int c = closeCandidates[i].second;
-
-        if (map[r][c] == FLOOR)
+        if (placeOneNearTorch(tr, tc, false))
         {
-            if (safePath[r][c])
-                continue;
-
-            if (rowMineCount(r) > rowSoftLimit && (std::rand() % 100) < 85)
-                continue;
-            if (colMineCount(c) > colSoftLimit && (std::rand() % 100) < 85)
-                continue;
-
-            int nearbyMines = countAdjacentMines(r, c);
-            if (nearbyMines > 0)
-                continue;
-
-            if (createsDenseMineCluster(r, c))
-                continue;
-
-            map[r][c] = MINE;
             placed++;
+            continue;
         }
-    }
 
-    for (size_t i = 0; i < nearCandidates.size() && placed < targetCount; i++)
-    {
-        int r = nearCandidates[i].first;
-        int c = nearCandidates[i].second;
-
-        if (map[r][c] == FLOOR)
+        bool added = false;
+        for (size_t i = 0; i < torchCells.size() && placed < targetCount; i++)
         {
-            if (safePath[r][c])
-                continue;
-
-            if (rowMineCount(r) > rowSoftLimit && (std::rand() % 100) < 75)
-                continue;
-            if (colMineCount(c) > colSoftLimit && (std::rand() % 100) < 75)
-                continue;
-
-            int nearbyMines = countAdjacentMines(r, c);
-            if (nearbyMines > 0)
-                continue;
-
-            if (createsDenseMineCluster(r, c))
-                continue;
-
-            map[r][c] = MINE;
-            placed++;
+            int rr = torchCells[i].first;
+            int cc = torchCells[i].second;
+            if (placeOneNearTorch(rr, cc, false))
+            {
+                placed++;
+                added = true;
+                break;
+            }
         }
-    }
 
-    for (size_t i = 0; i < closeCandidates.size() && placed < targetCount; i++)
-    {
-        int r = closeCandidates[i].first;
-        int c = closeCandidates[i].second;
-
-        if (map[r][c] == FLOOR)
-        {
-            if (safePath[r][c])
-                continue;
-
-            if (rowMineCount(r) > rowSoftLimit + 1 && (std::rand() % 100) < 70)
-                continue;
-            if (colMineCount(c) > colSoftLimit + 1 && (std::rand() % 100) < 70)
-                continue;
-
-            if (countAdjacentMines(r, c) > 0)
-                continue;
-
-            if (createsDenseMineCluster(r, c))
-                continue;
-
-            map[r][c] = MINE;
-            placed++;
-        }
+        if (!added)
+            break;
     }
 }
 
@@ -751,9 +633,6 @@ bool MapManager::placeOneRandomTile(int tileType, int safeRow, int safeCol, int 
             continue;
 
         if (visibilityRule == VISIBLE_ONLY && !visible[r][c])
-            continue;
-
-        if (tileType == MINE && safePath[r][c])
             continue;
 
         if (tileType == MINE)
@@ -794,8 +673,90 @@ void MapManager::carveSafePath(int fromRow, int fromCol, int toRow, int toCol)
         safePath[r][c] = true;
     }
 
-    while (r != toRow || c != toCol)
+    int safetyGuard = 0;
+    int maxSteps = ROWS * COLS * 6;
+
+    while ((r != toRow || c != toCol) && safetyGuard < maxSteps)
     {
+        safetyGuard++;
+
+        int remainDistance = std::abs(r - toRow) + std::abs(c - toCol);
+        bool canTryDetour = remainDistance > 2 && (std::rand() % 100) < 12;
+        if (canTryDetour)
+        {
+            int detourRows[4];
+            int detourCols[4];
+            int detourCount = 0;
+
+            if (r != toRow)
+            {
+                detourRows[detourCount] = r;
+                detourCols[detourCount] = c - 1;
+                detourCount++;
+                detourRows[detourCount] = r;
+                detourCols[detourCount] = c + 1;
+                detourCount++;
+            }
+
+            if (c != toCol)
+            {
+                detourRows[detourCount] = r - 1;
+                detourCols[detourCount] = c;
+                detourCount++;
+                detourRows[detourCount] = r + 1;
+                detourCols[detourCount] = c;
+                detourCount++;
+            }
+
+            int bestDetourRow = r;
+            int bestDetourCol = c;
+            int bestDetourScore = std::numeric_limits<int>::max();
+
+            for (int i = 0; i < detourCount; i++)
+            {
+                int nr = detourRows[i];
+                int nc = detourCols[i];
+
+                if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS)
+                    continue;
+
+                int score = 0;
+                int nextDistance = std::abs(nr - toRow) + std::abs(nc - toCol);
+
+                score += nextDistance * 8;
+                if (nextDistance > remainDistance)
+                    score += 18;
+                if (visited[nr][nc])
+                    score += 18;
+                if (map[nr][nc] == MINE)
+                    score += 65;
+
+                int nearMines = countAdjacentMines(nr, nc);
+                score += nearMines * 7;
+                score += std::rand() % 9;
+
+                if (score < bestDetourScore)
+                {
+                    bestDetourScore = score;
+                    bestDetourRow = nr;
+                    bestDetourCol = nc;
+                }
+            }
+
+            if (!(bestDetourRow == r && bestDetourCol == c))
+            {
+                r = bestDetourRow;
+                c = bestDetourCol;
+                visited[r][c] = true;
+                safePath[r][c] = true;
+
+                if (!(r == goalRow && c == goalCol) && !(r == startRow && c == startCol))
+                    revealCell(r, c);
+
+                continue;
+            }
+        }
+
         int nextRowCandidates[2] = {r, r};
         int nextColCandidates[2] = {c, c};
         int candidateCount = 0;
@@ -879,6 +840,25 @@ void MapManager::carveSafePath(int fromRow, int fromCol, int toRow, int toCol)
             revealCell(r, c);
         }
     }
+
+    while (r != toRow || c != toCol)
+    {
+        if (r != toRow)
+            r += (toRow > r) ? 1 : -1;
+        else if (c != toCol)
+            c += (toCol > c) ? 1 : -1;
+
+        if (r < 0) r = 0;
+        if (r >= ROWS) r = ROWS - 1;
+        if (c < 0) c = 0;
+        if (c >= COLS) c = COLS - 1;
+
+        visited[r][c] = true;
+        safePath[r][c] = true;
+
+        if (!(r == goalRow && c == goalCol) && !(r == startRow && c == startCol))
+            revealCell(r, c);
+    }
 }
 
 bool MapManager::placeReachableVisibleTorch(int playerRow, int playerCol)
@@ -924,29 +904,51 @@ bool MapManager::placeReachableVisibleTorch(int playerRow, int playerCol)
     return true;
 }
 
-void MapManager::reset(Difficulty difficulty)
+void MapManager::reset(Difficulty difficulty, int campaignStage)
 {
     currentDifficulty = difficulty;
+    currentCampaignStage = (campaignStage < 0) ? 0 : campaignStage;
     initializeMap();
 
     safePath[startRow][startCol] = true;
     safePath[goalRow][goalCol] = true;
 
-    int mineCount = 31;
-    int nearTorchMineCount = 19;
+    int mineCount = 32;
+    int nearTorchMineCount = 0;
 
     if (difficulty == Difficulty::EASY)
     {
-        mineCount = 24;
-        nearTorchMineCount = 12;
+        mineCount = 24 + (currentCampaignStage * 2);
+        if (mineCount > 34)
+            mineCount = 34;
+
+        nearTorchMineCount = currentCampaignStage / 2;
+        if (nearTorchMineCount > 8)
+            nearTorchMineCount = 8;
+    }
+    else if (difficulty == Difficulty::MEDIUM)
+    {
+        mineCount = 32 + (currentCampaignStage * 2);
+        if (mineCount > 44)
+            mineCount = 44;
+
+        nearTorchMineCount = 4 + currentCampaignStage;
+        if (nearTorchMineCount > 14)
+            nearTorchMineCount = 14;
     }
     else if (difficulty == Difficulty::HARD)
     {
-        mineCount = 45;
-        nearTorchMineCount = 29;
+        mineCount = 42 + (currentCampaignStage * 3);
+        if (mineCount > 54)
+            mineCount = 54;
+
+        // HARD ramps sharply: more pressure around torches as stages increase.
+        nearTorchMineCount = 20 + (currentCampaignStage * 3);
+        if (nearTorchMineCount > 46)
+            nearTorchMineCount = 46;
     }
 
-    buildFixedTorchNetwork(difficulty);
+    buildFixedTorchNetwork(difficulty, currentCampaignStage);
     carveSafePath(startRow, startCol, goalRow, goalCol);
     placeRandomTiles(MINE, mineCount);
     placeMinesNearTorches(nearTorchMineCount);
@@ -963,76 +965,81 @@ void MapManager::reset(Difficulty difficulty)
     revealInitialArea();
 }
 
-void MapManager::buildFixedTorchNetwork(Difficulty difficulty)
+void MapManager::buildFixedTorchNetwork(Difficulty difficulty, int campaignStage)
 {
-    int torchTarget = 14;
+    int torchTarget = 16;
     if (difficulty == Difficulty::EASY)
-        torchTarget = 12;
+        torchTarget = 18;
+    else if (difficulty == Difficulty::MEDIUM)
+        torchTarget = 16;
     else if (difficulty == Difficulty::HARD)
-        torchTarget = 17;
+        torchTarget = 14;
 
-    int minTorchDistance = 2;
+    int stagePenalty = campaignStage / 2;
+    if (difficulty == Difficulty::HARD)
+        stagePenalty += campaignStage / 3;
+
+    torchTarget -= stagePenalty;
+    if (difficulty == Difficulty::EASY && torchTarget < 14)
+        torchTarget = 14;
+    if (difficulty == Difficulty::MEDIUM && torchTarget < 12)
+        torchTarget = 12;
+    if (difficulty == Difficulty::HARD && torchTarget < 9)
+        torchTarget = 9;
+
+    int minTorchDistance = 3;
     if (difficulty != Difficulty::EASY)
-        minTorchDistance = 3;
+        minTorchDistance = 4;
+    if (difficulty == Difficulty::HARD)
+        minTorchDistance = 5;
 
-    const int zoneRows = 3;
-    const int zoneCols = 4;
-    int zoneCount[zoneRows * zoneCols] = {0};
+    if (campaignStage >= 4 && minTorchDistance < 6)
+        minTorchDistance = 6;
 
-    auto getZoneIndex = [zoneRows, zoneCols, this](int row, int col) -> int
+    const int bandCount = (difficulty == Difficulty::EASY) ? 6 : 7;
+    const int totalProgress = (goalRow - startRow) + (goalCol - startCol);
+    std::vector<std::vector<std::pair<int, int>>> bandCandidates(static_cast<size_t>(bandCount));
+
+    auto edgeDistance = [this](int row, int col) -> int
     {
-        int zr = (row * zoneRows) / ROWS;
-        int zc = (col * zoneCols) / COLS;
-        if (zr < 0) zr = 0;
-        if (zr >= zoneRows) zr = zoneRows - 1;
-        if (zc < 0) zc = 0;
-        if (zc >= zoneCols) zc = zoneCols - 1;
-        return zr * zoneCols + zc;
+        int dTop = row;
+        int dBottom = ROWS - 1 - row;
+        int dLeft = col;
+        int dRight = COLS - 1 - col;
+        return std::min(std::min(dTop, dBottom), std::min(dLeft, dRight));
     };
 
-    std::vector<std::pair<int, int>> candidates;
-    candidates.reserve((ROWS - 2) * (COLS - 2));
     for (int r = 1; r < ROWS - 1; r++)
     {
         for (int c = 1; c < COLS - 1; c++)
         {
             if ((r == startRow && c == startCol) || (r == goalRow && c == goalCol))
                 continue;
-            candidates.push_back({r, c});
+
+            int progress = (r - startRow) + (c - startCol);
+            int band = 0;
+            if (totalProgress > 0)
+                band = (progress * bandCount) / (totalProgress + 1);
+            if (band < 0)
+                band = 0;
+            if (band >= bandCount)
+                band = bandCount - 1;
+
+            bandCandidates[static_cast<size_t>(band)].push_back({r, c});
         }
     }
 
     static std::mt19937 torchRng(static_cast<unsigned int>(std::time(nullptr)) + 313U);
-    std::shuffle(candidates.begin(), candidates.end(), torchRng);
+    for (size_t i = 0; i < bandCandidates.size(); i++)
+        std::shuffle(bandCandidates[i].begin(), bandCandidates[i].end(), torchRng);
 
     std::vector<std::pair<int, int>> torchNodes;
     torchNodes.reserve(static_cast<size_t>(torchTarget + 8));
 
-    auto placeTorchAndLink = [this, &torchNodes](int row, int col)
+    auto placeTorch = [this, &torchNodes](int row, int col)
     {
-        if (!(map[row][col] == FLOOR || map[row][col] == MINE))
+        if (map[row][col] != FLOOR)
             return;
-
-        if (torchNodes.empty())
-        {
-            carveSafePath(startRow, startCol, row, col);
-        }
-        else
-        {
-            int bestIndex = 0;
-            int bestDistance = std::numeric_limits<int>::max();
-            for (size_t i = 0; i < torchNodes.size(); i++)
-            {
-                int distance = std::abs(torchNodes[i].first - row) + std::abs(torchNodes[i].second - col);
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    bestIndex = static_cast<int>(i);
-                }
-            }
-
-            carveSafePath(torchNodes[static_cast<size_t>(bestIndex)].first, torchNodes[static_cast<size_t>(bestIndex)].second, row, col);
-        }
 
         map[row][col] = TORCH;
         torchState[row][col] = TORCH_NOT_USED;
@@ -1040,109 +1047,161 @@ void MapManager::buildFixedTorchNetwork(Difficulty difficulty)
     };
 
     int placedTorches = 0;
+    int basePerBand = torchTarget / bandCount;
+    int extraBands = torchTarget % bandCount;
 
-    for (size_t i = 0; i < candidates.size() && placedTorches < torchTarget; i++)
+    // Pass 1: place torches per progress band so links feel like guided routes to goal.
+    for (int band = 0; band < bandCount && placedTorches < torchTarget; band++)
     {
-        int r = candidates[i].first;
-        int c = candidates[i].second;
-        int zoneIndex = getZoneIndex(r, c);
+        int quota = basePerBand + ((band < extraBands) ? 1 : 0);
+        if (quota < 1)
+            quota = 1;
 
-        if (zoneCount[zoneIndex] > 0)
-            continue;
-        if (hasNearbyTorch(r, c, minTorchDistance))
-            continue;
+        int placedInBand = 0;
+        int guard = 0;
+        int maxGuard = static_cast<int>(bandCandidates[static_cast<size_t>(band)].size()) * 2 + 8;
+        while (placedInBand < quota && placedTorches < torchTarget && guard < maxGuard)
+        {
+            guard++;
+            int bestIdx = -1;
+            int bestScore = std::numeric_limits<int>::min();
 
-        placeTorchAndLink(r, c);
-        zoneCount[zoneIndex]++;
-        placedTorches++;
+            for (size_t i = 0; i < bandCandidates[static_cast<size_t>(band)].size(); i++)
+            {
+                int r = bandCandidates[static_cast<size_t>(band)][i].first;
+                int c = bandCandidates[static_cast<size_t>(band)][i].second;
+
+                if (map[r][c] != FLOOR)
+                    continue;
+                if (hasNearbyTorch(r, c, minTorchDistance))
+                    continue;
+
+                int nearestTorchDistance = ROWS + COLS;
+                for (size_t t = 0; t < torchNodes.size(); t++)
+                {
+                    int distance = std::abs(torchNodes[t].first - r) + std::abs(torchNodes[t].second - c);
+                    if (distance < nearestTorchDistance)
+                        nearestTorchDistance = distance;
+                }
+                if (nearestTorchDistance == ROWS + COLS)
+                    nearestTorchDistance = 8;
+
+                int diagonalBias = std::abs((r - startRow) - (c - startCol));
+                int score = 0;
+                score += nearestTorchDistance * 20;
+                score += edgeDistance(r, c) * 8;
+                score -= diagonalBias * 3;
+                score -= (std::rand() % 9);
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestIdx = static_cast<int>(i);
+                }
+            }
+
+            if (bestIdx < 0)
+                break;
+
+            int r = bandCandidates[static_cast<size_t>(band)][static_cast<size_t>(bestIdx)].first;
+            int c = bandCandidates[static_cast<size_t>(band)][static_cast<size_t>(bestIdx)].second;
+            placeTorch(r, c);
+            placedTorches++;
+            placedInBand++;
+        }
     }
 
-    for (size_t i = 0; i < candidates.size() && placedTorches < torchTarget; i++)
+    // Pass 2: if still missing, fill globally with the same spacing rule.
+    for (int band = 0; band < bandCount && placedTorches < torchTarget; band++)
     {
-        int r = candidates[i].first;
-        int c = candidates[i].second;
-        int zoneIndex = getZoneIndex(r, c);
+        for (size_t i = 0; i < bandCandidates[static_cast<size_t>(band)].size() && placedTorches < torchTarget; i++)
+        {
+            int r = bandCandidates[static_cast<size_t>(band)][i].first;
+            int c = bandCandidates[static_cast<size_t>(band)][i].second;
 
-        if (zoneCount[zoneIndex] >= 1)
-            continue;
-        if (hasNearbyTorch(r, c, minTorchDistance))
-            continue;
+            if (map[r][c] != FLOOR)
+                continue;
+            if (hasNearbyTorch(r, c, minTorchDistance))
+                continue;
 
-        placeTorchAndLink(r, c);
-        zoneCount[zoneIndex]++;
-        placedTorches++;
-    }
-
-    for (size_t i = 0; i < candidates.size() && placedTorches < torchTarget; i++)
-    {
-        int r = candidates[i].first;
-        int c = candidates[i].second;
-        if (hasNearbyTorch(r, c, minTorchDistance))
-            continue;
-
-        placeTorchAndLink(r, c);
-        placedTorches++;
+            placeTorch(r, c);
+            placedTorches++;
+        }
     }
 
     if (torchNodes.size() >= 2)
     {
+        std::sort(torchNodes.begin(), torchNodes.end(), [this](const std::pair<int, int>& a, const std::pair<int, int>& b)
+        {
+            int da = std::abs(goalRow - a.first) + std::abs(goalCol - a.second);
+            int db = std::abs(goalRow - b.first) + std::abs(goalCol - b.second);
+            if (da != db)
+                return da > db;
+            return a.first + a.second < b.first + b.second;
+        });
+
+        int minLinkDistance = (difficulty == Difficulty::EASY) ? 2 : 3;
+        int maxLinkDistance = (difficulty == Difficulty::EASY) ? 7 : 8;
+
+        // Connect each torch to one meaningful predecessor to avoid noisy crisscross links.
         for (size_t i = 0; i < torchNodes.size(); i++)
         {
             int rowA = torchNodes[i].first;
             int colA = torchNodes[i].second;
             int goalDistA = std::abs(goalRow - rowA) + std::abs(goalCol - colA);
 
-            int forwardIndex = -1;
-            int forwardScore = std::numeric_limits<int>::max();
-            int lateralIndex = -1;
-            int lateralScore = std::numeric_limits<int>::max();
+            int parentIndex = -1;
+            int parentScore = std::numeric_limits<int>::max();
 
-            for (size_t j = 0; j < torchNodes.size(); j++)
+            for (size_t j = i + 1; j < torchNodes.size(); j++)
             {
-                if (i == j)
-                    continue;
-
                 int rowB = torchNodes[j].first;
                 int colB = torchNodes[j].second;
                 int distance = std::abs(rowA - rowB) + std::abs(colA - colB);
                 int goalDistB = std::abs(goalRow - rowB) + std::abs(goalCol - colB);
-                int goalDiff = std::abs(goalDistA - goalDistB);
 
-                if (goalDistB < goalDistA && distance >= 3 && distance <= 9)
-                {
-                    int score = distance * 4 + goalDistB;
-                    if (score < forwardScore)
-                    {
-                        forwardScore = score;
-                        forwardIndex = static_cast<int>(j);
-                    }
-                }
+                if (goalDistB >= goalDistA)
+                    continue;
 
-                if (goalDiff <= 2 && distance >= 4 && distance <= 10)
+                int progressStep = goalDistA - goalDistB;
+                if (distance < minLinkDistance || distance > maxLinkDistance)
+                    continue;
+
+                int score = distance * 5 + std::abs(progressStep - 3) * 6;
+                if (score < parentScore)
                 {
-                    int score = distance * 3 + goalDiff * 5;
-                    if (score < lateralScore)
-                    {
-                        lateralScore = score;
-                        lateralIndex = static_cast<int>(j);
-                    }
+                    parentScore = score;
+                    parentIndex = static_cast<int>(j);
                 }
             }
 
-            if (forwardIndex != -1)
+            if (parentIndex == -1)
             {
-                int rowB = torchNodes[static_cast<size_t>(forwardIndex)].first;
-                int colB = torchNodes[static_cast<size_t>(forwardIndex)].second;
-                carveSafePath(rowA, colA, rowB, colB);
+                int fallbackScore = std::numeric_limits<int>::max();
+                for (size_t j = i + 1; j < torchNodes.size(); j++)
+                {
+                    int rowB = torchNodes[j].first;
+                    int colB = torchNodes[j].second;
+                    int goalDistB = std::abs(goalRow - rowB) + std::abs(goalCol - colB);
+                    if (goalDistB >= goalDistA)
+                        continue;
+
+                    int distance = std::abs(rowA - rowB) + std::abs(colA - colB);
+                    if (distance < fallbackScore)
+                    {
+                        fallbackScore = distance;
+                        parentIndex = static_cast<int>(j);
+                    }
+                }
             }
 
-            if (lateralIndex != -1)
-            {
-                int rowB = torchNodes[static_cast<size_t>(lateralIndex)].first;
-                int colB = torchNodes[static_cast<size_t>(lateralIndex)].second;
-                carveSafePath(rowA, colA, rowB, colB);
-            }
+            if (parentIndex != -1)
+                carveSafePath(rowA, colA, torchNodes[static_cast<size_t>(parentIndex)].first,
+                              torchNodes[static_cast<size_t>(parentIndex)].second);
         }
+
+        carveSafePath(startRow, startCol, torchNodes.front().first, torchNodes.front().second);
+        carveSafePath(torchNodes.back().first, torchNodes.back().second, goalRow, goalCol);
     }
 
     ensureStarterTorch();
@@ -1187,6 +1246,9 @@ void MapManager::revealCell(int row, int col)
 {
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS)
         return;
+
+    if (clearMinesOnReveal && map[row][col] == MINE)
+        map[row][col] = FLOOR;
 
     visible[row][col] = true;
     shadowVisible[row][col] = true;
@@ -1267,6 +1329,31 @@ int MapManager::countAdjacentMines(int row, int col) const
     return count;
 }
 
+bool MapManager::hasMineWithinRadius(int row, int col, int radius) const
+{
+    if (radius < 1)
+        return false;
+
+    for (int dr = -radius; dr <= radius; dr++)
+    {
+        for (int dc = -radius; dc <= radius; dc++)
+        {
+            if (dr == 0 && dc == 0)
+                continue;
+
+            int nr = row + dr;
+            int nc = col + dc;
+            if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS)
+                continue;
+
+            if (map[nr][nc] == MINE)
+                return true;
+        }
+    }
+
+    return false;
+}
+
 bool MapManager::createsDenseMineCluster(int row, int col) const
 {
     for (int baseRow = row - 1; baseRow <= row; baseRow++)
@@ -1289,7 +1376,7 @@ bool MapManager::createsDenseMineCluster(int row, int col) const
                 }
             }
 
-            if (mineCount >= 3)
+            if (mineCount >= 4)
                 return true;
         }
     }
@@ -1327,7 +1414,7 @@ void MapManager::render(SDL_Renderer* renderer)
 
     int offsetX = RENDER_OFFSET_X;
     int offsetY = RENDER_OFFSET_Y;
-    int iconPadding = TILE_SIZE / 10;
+    int iconPadding = TILE_SIZE / 14;
     if (iconPadding < 3)
         iconPadding = 3;
     Uint32 ticksNow = SDL_GetTicks();
@@ -1335,6 +1422,26 @@ void MapManager::render(SDL_Renderer* renderer)
     SDL_Rect tileRect;
     tileRect.w = TILE_SIZE;
     tileRect.h = TILE_SIZE;
+
+    auto clampRectToTile = [](SDL_Rect& rect, const SDL_Rect& tile)
+    {
+        if (rect.x < tile.x)
+            rect.x = tile.x;
+        if (rect.y < tile.y)
+            rect.y = tile.y;
+
+        int maxRight = tile.x + tile.w;
+        int maxBottom = tile.y + tile.h;
+        if (rect.x + rect.w > maxRight)
+            rect.w = maxRight - rect.x;
+        if (rect.y + rect.h > maxBottom)
+            rect.h = maxBottom - rect.y;
+
+        if (rect.w < 1)
+            rect.w = 1;
+        if (rect.h < 1)
+            rect.h = 1;
+    };
 
     for (int r = 0; r < ROWS; r++)
     {
@@ -1363,8 +1470,8 @@ void MapManager::render(SDL_Renderer* renderer)
                     if (map[r][c] == TORCH)
                     {
                         SDL_Rect iconRect = tileRect;
-                        int torchInsetX = TILE_SIZE / 10;
-                        int torchInsetY = TILE_SIZE / 12;
+                        int torchInsetX = TILE_SIZE / 16;
+                        int torchInsetY = TILE_SIZE / 18;
                         if (torchInsetX < 3)
                             torchInsetX = 3;
                         if (torchInsetY < 2)
@@ -1378,6 +1485,7 @@ void MapManager::render(SDL_Renderer* renderer)
                             iconRect.w = 8;
                         if (iconRect.h < 8)
                             iconRect.h = 8;
+                        clampRectToTile(iconRect, tileRect);
 
                         SDL_Color glowColor = {255, 160, 30, 90};
                         if (torchState[r][c] == TORCH_SUCCESS)
@@ -1390,13 +1498,14 @@ void MapManager::render(SDL_Renderer* renderer)
                         SDL_RenderFillRect(renderer, &iconRect);
 
                         SDL_Rect glowRect = tileRect;
-                        int glowInset = TILE_SIZE / 14 + static_cast<int>((ticksNow / 160) % 2);
+                        int glowInset = TILE_SIZE / 18 + static_cast<int>((ticksNow / 160) % 2);
                         if (glowInset < 2)
                             glowInset = 2;
                         glowRect.x += glowInset;
                         glowRect.y += glowInset;
                         glowRect.w -= glowInset * 2;
                         glowRect.h -= glowInset * 2;
+                        clampRectToTile(glowRect, tileRect);
 
                         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
                         SDL_SetRenderDrawColor(renderer, glowColor.r, glowColor.g, glowColor.b, glowColor.a);
@@ -1471,6 +1580,7 @@ void MapManager::render(SDL_Renderer* renderer)
                         iconRect.y -= mineBoost;
                         iconRect.w += mineBoost * 2;
                         iconRect.h += mineBoost * 2;
+                        clampRectToTile(iconRect, tileRect);
 
                         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
                         SDL_SetRenderDrawColor(renderer, 28, 28, 28, 110);
@@ -1482,6 +1592,7 @@ void MapManager::render(SDL_Renderer* renderer)
                         SDL_Rect mineShadow = iconRect;
                         mineShadow.x += TILE_SIZE / 18;
                         mineShadow.y += TILE_SIZE / 18;
+                        clampRectToTile(mineShadow, tileRect);
                         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
                         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 90);
                         SDL_RenderFillRect(renderer, &mineShadow);
@@ -1605,6 +1716,7 @@ void MapManager::resolveTorch(int row, int col, bool correctAnswer)
         return;
 
     torchState[row][col] = correctAnswer ? TORCH_SUCCESS : TORCH_FAILED;
+
     revealCell(row, col);
 }
 
@@ -1645,9 +1757,6 @@ bool MapManager::activateStarterTorch()
 
         if (fallbackRow == goalRow && fallbackCol == goalCol)
             return false;
-
-        if (map[fallbackRow][fallbackCol] == MINE)
-            map[fallbackRow][fallbackCol] = FLOOR;
 
         if (map[fallbackRow][fallbackCol] != FLOOR)
             return false;
@@ -1784,14 +1893,13 @@ void MapManager::revealShadowAround(int row, int col, int radius)
 
 bool MapManager::spawnTorchInOpenedArea(int centerRow, int centerCol, int maxDistance)
 {
-    const int minTorchDistance = 3;
+    const int minTorchDistance = 4;
 
     if (maxDistance < 1)
         maxDistance = 1;
 
     int bestScore = std::numeric_limits<int>::max();
     std::vector<std::pair<int, int>> bestFloor;
-    std::vector<std::pair<int, int>> bestMine;
 
     for (int r = 0; r < ROWS; r++)
     {
@@ -1830,19 +1938,6 @@ bool MapManager::spawnTorchInOpenedArea(int centerRow, int centerCol, int maxDis
                     bestFloor.push_back({r, c});
                 }
             }
-            else if (map[r][c] == MINE)
-            {
-                if (score < bestScore)
-                {
-                    bestScore = score;
-                    bestMine.clear();
-                    bestMine.push_back({r, c});
-                }
-                else if (score == bestScore)
-                {
-                    bestMine.push_back({r, c});
-                }
-            }
         }
     }
 
@@ -1851,17 +1946,6 @@ bool MapManager::spawnTorchInOpenedArea(int centerRow, int centerCol, int maxDis
         int pick = std::rand() % static_cast<int>(bestFloor.size());
         int r = bestFloor[pick].first;
         int c = bestFloor[pick].second;
-        map[r][c] = TORCH;
-        torchState[r][c] = TORCH_NOT_USED;
-        revealCell(r, c);
-        return true;
-    }
-
-    if (!bestMine.empty())
-    {
-        int pick = std::rand() % static_cast<int>(bestMine.size());
-        int r = bestMine[pick].first;
-        int c = bestMine[pick].second;
         map[r][c] = TORCH;
         torchState[r][c] = TORCH_NOT_USED;
         revealCell(r, c);
@@ -1890,7 +1974,7 @@ bool MapManager::spawnTorchInOpenedArea(int centerRow, int centerCol, int maxDis
                 if (hasNearbyTorch(r, c, minTorchDistance))
                     continue;
 
-                if (map[r][c] == FLOOR || map[r][c] == MINE)
+                if (map[r][c] == FLOOR)
                 {
                     map[r][c] = TORCH;
                     torchState[r][c] = TORCH_NOT_USED;
@@ -1917,7 +2001,7 @@ bool MapManager::spawnTorchInOpenedArea(int centerRow, int centerCol, int maxDis
             return true;
         }
 
-        if ((map[rr][cc] == FLOOR || map[rr][cc] == MINE) && !hasNearbyTorch(rr, cc, minTorchDistance))
+        if (map[rr][cc] == FLOOR && !hasNearbyTorch(rr, cc, minTorchDistance))
         {
             map[rr][cc] = TORCH;
             torchState[rr][cc] = TORCH_NOT_USED;
@@ -2049,6 +2133,13 @@ void MapManager::clearTorchHint()
 
 bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorchCount)
 {
+    struct RevealMineGuard
+    {
+        bool& flag;
+        explicit RevealMineGuard(bool& f) : flag(f) { flag = true; }
+        ~RevealMineGuard() { flag = false; }
+    } guard(clearMinesOnReveal);
+
     std::vector<std::pair<int, int>> candidates;
     candidates.reserve(16);
 
@@ -2067,15 +2158,13 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
         }
     }
 
-    int desiredBranches = 2;
-    if (currentDifficulty == Difficulty::HARD)
-        desiredBranches = 1;
+    int desiredBranches = 1;
+    if (currentDifficulty == Difficulty::EASY)
+        desiredBranches = 2;
 
-    if (solvedTorchCount >= 6)
+    if (solvedTorchCount >= 7)
     {
         if (currentDifficulty == Difficulty::EASY)
-            desiredBranches = 3;
-        else if (currentDifficulty == Difficulty::MEDIUM)
             desiredBranches = 2;
     }
 
@@ -2085,7 +2174,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
     for (size_t i = 0; i < candidates.size(); i++)
     {
         int distance = std::abs(candidates[i].first - fromRow) + std::abs(candidates[i].second - fromCol);
-        if (distance >= 2 && distance <= 4)
+        if (distance >= 3 && distance <= 5)
             nearCandidates.push_back(candidates[i]);
     }
 
@@ -2096,7 +2185,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
     {
         for (int i = 0; i < 3 && static_cast<int>(candidates.size()) < desiredBranches; i++)
         {
-            spawnTorchInOpenedArea(fromRow, fromCol, 2);
+            spawnTorchInOpenedArea(fromRow, fromCol, 1);
 
             candidates.clear();
             for (int r = 0; r < ROWS; r++)
@@ -2119,7 +2208,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
             for (size_t k = 0; k < candidates.size(); k++)
             {
                 int distance = std::abs(candidates[k].first - fromRow) + std::abs(candidates[k].second - fromCol);
-                if (distance >= 2 && distance <= 4)
+                if (distance >= 3 && distance <= 5)
                     refreshedNearCandidates.push_back(candidates[k]);
             }
 
@@ -2130,7 +2219,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
 
     if (candidates.empty())
     {
-        int fallbackRevealSteps = (currentDifficulty == Difficulty::EASY) ? 2 : 1;
+        int fallbackRevealSteps = 1;
         revealTowardGoalPath(fromRow, fromCol, fallbackRevealSteps);
         return false;
     }
@@ -2252,18 +2341,6 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
         openedAny = true;
     }
 
-    if (openedTargets.size() >= 2)
-    {
-        for (size_t i = 1; i < openedTargets.size(); i++)
-        {
-            int r1 = openedTargets[i - 1].first;
-            int c1 = openedTargets[i - 1].second;
-            int r2 = openedTargets[i].first;
-            int c2 = openedTargets[i].second;
-            carveSafePath(r1, c1, r2, c2);
-        }
-    }
-
     if (!openedTargets.empty())
     {
         int bestRow = openedTargets[0].first;
@@ -2283,7 +2360,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
             }
         }
 
-        int forwardRevealSteps = (currentDifficulty == Difficulty::EASY) ? 2 : 1;
+        int forwardRevealSteps = 1;
         revealTowardGoalPath(bestRow, bestCol, forwardRevealSteps);
     }
 
@@ -2411,6 +2488,34 @@ bool MapManager::hasAnyUnresolvedTorch() const
     }
 
     return false;
+}
+
+int MapManager::getTotalTorchCount() const
+{
+    int total = 0;
+    for (int r = 0; r < ROWS; r++)
+    {
+        for (int c = 0; c < COLS; c++)
+        {
+            if (map[r][c] == TORCH)
+                total++;
+        }
+    }
+    return total;
+}
+
+int MapManager::getSolvedTorchCount() const
+{
+    int solved = 0;
+    for (int r = 0; r < ROWS; r++)
+    {
+        for (int c = 0; c < COLS; c++)
+        {
+            if (map[r][c] == TORCH && torchState[r][c] == TORCH_SUCCESS)
+                solved++;
+        }
+    }
+    return solved;
 }
 
 bool MapManager::isKnown(int row, int col) const

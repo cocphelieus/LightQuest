@@ -10,7 +10,7 @@
 
 Player::Player()
 {
-    x = 64;   // vị trí pixel ban đầu (ví dụ tileSize = 64)
+    x = 64;
     y = 64;
     speed = 200.0f; // pixel / giây
     texture = nullptr;
@@ -25,9 +25,9 @@ void Player::setPosition(int r, int c, int tileSize)
 {
     row = r;
     col = c;
-    // align pixel coordinates with tile grid
-    x = static_cast<float>(col) * static_cast<float>(tileSize);
-    y = static_cast<float>(row) * static_cast<float>(tileSize);
+    // Anchor character by feet: center-bottom of sprite maps to the tile.
+    x = static_cast<float>(col) * static_cast<float>(tileSize) + (static_cast<float>(tileSize) - BODY_WIDTH) * 0.5f;
+    y = static_cast<float>(row + 1) * static_cast<float>(tileSize) - BODY_HEIGHT;
 }
 
 bool Player::loadTexture(SDL_Renderer* renderer)
@@ -83,8 +83,8 @@ void Player::update(const Uint8* keystate, float deltaTime, const MapManager& ma
     int tileSize = map.getTileSize();
     int mapW = map.getCols() * tileSize;
     int mapH = map.getRows() * tileSize;
-    const float playerW = 40.0f;
-    const float playerH = 40.0f;
+    const float playerW = BODY_WIDTH;
+    const float playerH = BODY_HEIGHT;
 
     if (newX < 0.0f) newX = 0.0f;
     if (newY < 0.0f) newY = 0.0f;
@@ -94,8 +94,8 @@ void Player::update(const Uint8* keystate, float deltaTime, const MapManager& ma
     // ===== collision per axis =====
     // horizontal move first
     float testX = newX;
-    int currRow = (int)(y / tileSize);
-    int testCol = (int)(testX / tileSize);
+    int currRow = static_cast<int>((y + playerH - FOOT_OFFSET) / static_cast<float>(tileSize));
+    int testCol = static_cast<int>((testX + playerW * 0.5f) / static_cast<float>(tileSize));
     if (!map.isWall(currRow, testCol))
     {
         x = testX;
@@ -103,16 +103,16 @@ void Player::update(const Uint8* keystate, float deltaTime, const MapManager& ma
 
     // vertical move
     float testY = newY;
-    int currCol = (int)(x / tileSize);
-    int testRow = (int)(testY / tileSize);
+    int currCol = static_cast<int>((x + playerW * 0.5f) / static_cast<float>(tileSize));
+    int testRow = static_cast<int>((testY + playerH - FOOT_OFFSET) / static_cast<float>(tileSize));
     if (!map.isWall(testRow, currCol))
     {
         y = testY;
     }
 
-    // update logical tile coordinates
-    row = (int)(y / tileSize);
-    col = (int)(x / tileSize);
+    // Tile detection uses the feet point directly under the character.
+    row = static_cast<int>((y + playerH - FOOT_OFFSET) / static_cast<float>(tileSize));
+    col = static_cast<int>((x + playerW * 0.5f) / static_cast<float>(tileSize));
 }
 
 // void Player::render(SDL_Renderer* renderer, int offsetX, int offsetY, int tileSize)
@@ -133,14 +133,14 @@ void Player::render(SDL_Renderer* renderer, int offsetX, int offsetY)
 
     if (texture)
     {
-        SDL_Rect dst = {px, py, 40, 40};
+        SDL_Rect dst = {px, py, static_cast<int>(BODY_WIDTH), static_cast<int>(BODY_HEIGHT)};
         SDL_RenderCopy(renderer, texture, nullptr, &dst);
     }
     else
     {
         SDL_Rect rect;
-        rect.w = 40;   // kích thước nhân vật
-        rect.h = 40;
+        rect.w = static_cast<int>(BODY_WIDTH);
+        rect.h = static_cast<int>(BODY_HEIGHT);
         rect.x = px;
         rect.y = py;
 

@@ -28,6 +28,10 @@ public:
     void clean();
 
 private:
+    static constexpr float BODY_WIDTH = 48.0f;
+    static constexpr float BODY_HEIGHT = 48.0f;
+    static constexpr float FOOT_OFFSET = 2.0f;
+
     int row;
     int col;
     float x, y;
