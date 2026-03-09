@@ -20,6 +20,8 @@ src/core/QuestionManager.cpp ^
 -lSDL2 ^
 -lSDL2_image ^
 -lSDL2_ttf ^
+-static-libgcc ^
+-static-libstdc++ ^
 -Wall
 
 if %errorlevel% neq 0 (
