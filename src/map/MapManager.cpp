@@ -2175,15 +2175,10 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
         }
     }
 
+    // Easy keeps two linked torch routes, but each route reveals less area.
     int desiredBranches = 1;
     if (currentDifficulty == Difficulty::EASY)
         desiredBranches = 2;
-
-    if (solvedTorchCount >= 7)
-    {
-        if (currentDifficulty == Difficulty::EASY)
-            desiredBranches = 2;
-    }
 
     std::vector<std::pair<int, int>> nearCandidates;
     nearCandidates.reserve(candidates.size());
@@ -2346,6 +2341,10 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
     bool openedAny = false;
     std::vector<std::pair<int, int>> openedTargets;
     openedTargets.reserve(selectedIndices.size());
+    int targetRevealRadius = 1;
+    if (currentDifficulty == Difficulty::EASY)
+        targetRevealRadius = 0;
+
     for (size_t i = 0; i < selectedIndices.size(); i++)
     {
         int idx = selectedIndices[i];
@@ -2353,7 +2352,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
         int targetCol = candidates[static_cast<size_t>(idx)].second;
 
         carveSafePath(fromRow, fromCol, targetRow, targetCol);
-        revealRadius(targetRow, targetCol, 1, true);
+        revealRadius(targetRow, targetCol, targetRevealRadius, true);
         openedTargets.push_back({targetRow, targetCol});
 
         openedAny = true;
@@ -2411,7 +2410,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
         {
             int forwardRevealSteps = 2;
             if (currentDifficulty == Difficulty::EASY)
-                forwardRevealSteps = 3;
+                forwardRevealSteps = 1;
             revealTowardGoalPath(bestRow, bestCol, forwardRevealSteps);
         }
     }
