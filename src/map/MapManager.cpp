@@ -946,6 +946,11 @@ void MapManager::reset(Difficulty difficulty, int campaignStage)
         nearTorchMineCount = 20 + (currentCampaignStage * 3);
         if (nearTorchMineCount > 46)
             nearTorchMineCount = 46;
+
+        // In the 5-stage campaign, stage 5 is the final boss stage.
+        // Force peak mine pressure around torches to keep this stage brutal.
+        if (currentCampaignStage >= 4)
+            nearTorchMineCount = 46;
     }
 
     buildFixedTorchNetwork(difficulty, currentCampaignStage);
@@ -978,6 +983,10 @@ void MapManager::buildFixedTorchNetwork(Difficulty difficulty, int campaignStage
     int stagePenalty = campaignStage / 2;
     if (difficulty == Difficulty::HARD)
         stagePenalty += campaignStage / 3;
+
+    // 5-stage campaign tweak: make the final hard stage much tighter.
+    if (difficulty == Difficulty::HARD && campaignStage >= 4)
+        stagePenalty += 2;
 
     torchTarget -= stagePenalty;
     if (difficulty == Difficulty::EASY && torchTarget < 14)
@@ -1464,6 +1473,14 @@ void MapManager::render(SDL_Renderer* renderer)
             {
                 SDL_SetRenderDrawColor(renderer, 90, 90, 90, 255);
                 SDL_RenderFillRect(renderer, &tileRect);
+
+                // Show discovered safe route cells so torch rewards are immediately visible.
+                if (visible[r][c] && safePath[r][c] && map[r][c] == FLOOR)
+                {
+                    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+                    SDL_SetRenderDrawColor(renderer, 82, 132, 88, 110);
+                    SDL_RenderFillRect(renderer, &tileRect);
+                }
 
                 if (revealDetailTile)
                 {
@@ -2219,9 +2236,10 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
 
     if (candidates.empty())
     {
-        int fallbackRevealSteps = 1;
-        revealTowardGoalPath(fromRow, fromCol, fallbackRevealSteps);
-        return false;
+        // Only the final torch is allowed to open a complete route to the goal.
+        carveSafePath(fromRow, fromCol, goalRow, goalCol);
+        revealCell(goalRow, goalCol);
+        return true;
     }
 
     std::sort(
@@ -2335,7 +2353,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
         int targetCol = candidates[static_cast<size_t>(idx)].second;
 
         carveSafePath(fromRow, fromCol, targetRow, targetCol);
-        revealCell(targetRow, targetCol);
+        revealRadius(targetRow, targetCol, 1, true);
         openedTargets.push_back({targetRow, targetCol});
 
         openedAny = true;
@@ -2360,8 +2378,42 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
             }
         }
 
-        int forwardRevealSteps = 1;
-        revealTowardGoalPath(bestRow, bestCol, forwardRevealSteps);
+        int fromGoalDistance = std::abs(goalRow - fromRow) + std::abs(goalCol - fromCol);
+        bool openedNearestGoalTorch = true;
+
+        for (int r = 0; r < ROWS; r++)
+        {
+            for (int c = 0; c < COLS; c++)
+            {
+                if (map[r][c] != TORCH)
+                    continue;
+                if (torchState[r][c] != TORCH_NOT_USED)
+                    continue;
+
+                int distanceToGoal = std::abs(goalRow - r) + std::abs(goalCol - c);
+                if (distanceToGoal < fromGoalDistance)
+                {
+                    openedNearestGoalTorch = false;
+                    break;
+                }
+            }
+
+            if (!openedNearestGoalTorch)
+                break;
+        }
+
+        if (openedNearestGoalTorch)
+        {
+            carveSafePath(fromRow, fromCol, goalRow, goalCol);
+            revealCell(goalRow, goalCol);
+        }
+        else
+        {
+            int forwardRevealSteps = 2;
+            if (currentDifficulty == Difficulty::EASY)
+                forwardRevealSteps = 3;
+            revealTowardGoalPath(bestRow, bestCol, forwardRevealSteps);
+        }
     }
 
     return openedAny;

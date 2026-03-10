@@ -179,7 +179,7 @@ static Difficulty difficultyForCampaignStage(int stage)
 {
     if (stage <= 1)
         return Difficulty::EASY;
-    if (stage <= 4)
+    if (stage <= 3)
         return Difficulty::MEDIUM;
     return Difficulty::HARD;
 }

@@ -2,6 +2,10 @@
 
 echo Building LightQuest...
 
+REM Avoid linker "Permission denied" when previous game instance is still running.
+taskkill /f /im LightQuest.exe >nul 2>&1
+if exist "LightQuest.exe" del /f /q "LightQuest.exe" >nul 2>&1
+
 g++ ^
 src/main.cpp ^
 src/core/Game.cpp ^

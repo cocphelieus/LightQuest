@@ -140,11 +140,21 @@ namespace
     bool tryUnlockQuestionText(std::string& text)
     {
         stripUtf8Bom(text);
-        std::string lockPrefix = std::string(kQuestionLockHeader) + "\n";
-        if (!startsWith(text, lockPrefix))
+        std::string lockPrefixLf = std::string(kQuestionLockHeader) + "\n";
+        std::string lockPrefixCrlf = std::string(kQuestionLockHeader) + "\r\n";
+        std::string lockPrefixLegacy = std::string(kQuestionLockHeader) + "`n";
+
+        size_t lockPrefixSize = 0;
+        if (startsWith(text, lockPrefixCrlf))
+            lockPrefixSize = lockPrefixCrlf.size();
+        else if (startsWith(text, lockPrefixLf))
+            lockPrefixSize = lockPrefixLf.size();
+        else if (startsWith(text, lockPrefixLegacy))
+            lockPrefixSize = lockPrefixLegacy.size();
+        else
             return true;
 
-        std::string hexCipher = text.substr(lockPrefix.size());
+        std::string hexCipher = text.substr(lockPrefixSize);
         while (!hexCipher.empty() && (hexCipher.back() == '\n' || hexCipher.back() == '\r'))
             hexCipher.pop_back();
 
@@ -153,11 +163,19 @@ namespace
             return false;
 
         std::string plain = xorTransform(cipherBytes, kQuestionLockKey);
-        std::string plainPrefix = std::string(kQuestionPlainHeader) + "\n";
-        if (!startsWith(plain, plainPrefix))
+        std::string plainPrefixLf = std::string(kQuestionPlainHeader) + "\n";
+        std::string plainPrefixCrlf = std::string(kQuestionPlainHeader) + "\r\n";
+        std::string plainPrefixLegacy = std::string(kQuestionPlainHeader) + "`n";
+
+        if (startsWith(plain, plainPrefixCrlf))
+            text = plain.substr(plainPrefixCrlf.size());
+        else if (startsWith(plain, plainPrefixLf))
+            text = plain.substr(plainPrefixLf.size());
+        else if (startsWith(plain, plainPrefixLegacy))
+            text = plain.substr(plainPrefixLegacy.size());
+        else
             return false;
 
-        text = plain.substr(plainPrefix.size());
         return true;
     }
 
