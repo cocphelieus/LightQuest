@@ -9,8 +9,9 @@ OutputBaseFilename=LightQuest-Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=C:\Users\acer\OneDrive\Desktop\LightQuest\dist\LightQuest-Player\LightQuest.ico
 PrivilegesRequired=lowest
-UninstallDisplayIcon={app}\LightQuest.exe
+UninstallDisplayIcon={app}\LightQuest.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -22,8 +23,8 @@ Name: "desktopicon"; Description: "Create desktop shortcut"; GroupDescription: "
 Source: "C:\Users\acer\OneDrive\Desktop\LightQuest\dist\LightQuest-Player\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\LightQuest"; Filename: "{app}\LightQuest.exe"
-Name: "{autodesktop}\LightQuest"; Filename: "{app}\LightQuest.exe"; Tasks: desktopicon
+Name: "{autoprograms}\LightQuest"; Filename: "{app}\LightQuest.exe"; IconFilename: "{app}\LightQuest.ico"
+Name: "{autodesktop}\LightQuest"; Filename: "{app}\LightQuest.exe"; IconFilename: "{app}\LightQuest.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\LightQuest.exe"; Description: "Launch LightQuest"; Flags: nowait postinstall skipifsilent

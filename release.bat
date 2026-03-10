@@ -4,7 +4,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 set "SCRIPT_DIR=%~dp0"
 pushd "%SCRIPT_DIR%" >nul
 
-echo [1/3] Building LightQuest...
+echo [1/4] Building LightQuest...
 
 REM Avoid linker "Permission denied" when previous game instance is still running.
 taskkill /f /im LightQuest.exe >nul 2>&1
@@ -41,7 +41,7 @@ if errorlevel 1 (
 
 set "RELEASE_DIR=dist\LightQuest-Player"
 
-echo [2/3] Preparing release folder...
+echo [2/4] Preparing release folder...
 if exist "%RELEASE_DIR%" rmdir /s /q "%RELEASE_DIR%"
 mkdir "%RELEASE_DIR%"
 
@@ -61,11 +61,20 @@ if errorlevel 1 (
 call :bundle_runtime_dlls
 if errorlevel 1 (
   echo.
-  echo Failed to copy required SDL runtime DLLs.
+  echo Failed to bundle required runtime DLLs.
   popd >nul
   exit /b 1
 )
 
+call :prepare_branding_icon
+if errorlevel 1 (
+  echo.
+  echo Failed to create game icon from assets\images\entities\logo.png.
+  popd >nul
+  exit /b 1
+)
+
+echo [4/4] Building setup installer...
 call :build_setup_exe
 if errorlevel 1 (
   echo.
@@ -126,57 +135,26 @@ if errorlevel 1 exit /b 1
 exit /b 0
 
 :bundle_runtime_dlls
-set "SDL_BIN="
-for %%D in ("%MINGW_BIN%" "C:\msys64\mingw64\bin" "C:\msys64\ucrt64\bin" "C:\MinGW\bin") do (
-  if not defined SDL_BIN if exist "%%~D\SDL2.dll" set "SDL_BIN=%%~D"
+set "BIN_PATHS="
+for %%D in ("%MINGW_BIN%" "C:\msys64\mingw64\bin" "C:\msys64\ucrt64\bin" "C:\msys64\clang64\bin" "C:\MinGW\bin") do (
+  if exist "%%~D" (
+    if defined BIN_PATHS (
+      set "BIN_PATHS=!BIN_PATHS!;%%~fD"
+    ) else (
+      set "BIN_PATHS=%%~fD"
+    )
+  )
 )
 
-if not defined SDL_BIN (
-  echo Could not find SDL runtime folder. Checked MINGW_BIN and common paths.
+if not defined BIN_PATHS (
+  echo Could not find MinGW runtime folders. Checked MINGW_BIN and common paths.
   exit /b 1
 )
 
-echo Using SDL runtime from: %SDL_BIN%
+echo Resolving runtime DLLs from: !BIN_PATHS!
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\BundleRuntimeDlls.ps1" -OutDir "%RELEASE_DIR%" -BinPaths "!BIN_PATHS!"
 
-call :copy_required_dll SDL2.dll || exit /b 1
-call :copy_required_dll SDL2_image.dll || exit /b 1
-call :copy_required_dll SDL2_ttf.dll || exit /b 1
-
-call :copy_optional_dll libfreetype-6.dll
-call :copy_optional_dll libharfbuzz-0.dll
-call :copy_optional_dll libpng16-16.dll
-call :copy_optional_dll zlib1.dll
-call :copy_optional_dll libjpeg-8.dll
-call :copy_optional_dll libwebp-7.dll
-call :copy_optional_dll libwebpdecoder-3.dll
-call :copy_optional_dll libtiff-6.dll
-call :copy_optional_dll libavif-16.dll
-call :copy_optional_dll libbz2-1.dll
-call :copy_optional_dll libbrotlidec.dll
-call :copy_optional_dll libbrotlicommon.dll
-call :copy_optional_dll libdeflate.dll
-call :copy_optional_dll libiconv-2.dll
-call :copy_optional_dll libintl-8.dll
-call :copy_optional_dll liblzma-5.dll
-call :copy_optional_dll libwinpthread-1.dll
-call :copy_optional_dll libgcc_s_seh-1.dll
-call :copy_optional_dll libstdc++-6.dll
-
-exit /b 0
-
-:copy_required_dll
-if not exist "%SDL_BIN%\%~1" (
-  echo Missing required runtime DLL: %~1
-  exit /b 1
-)
-copy /y "%SDL_BIN%\%~1" "%RELEASE_DIR%\" >nul
 if errorlevel 1 exit /b 1
-exit /b 0
-
-:copy_optional_dll
-if exist "%SDL_BIN%\%~1" (
-  copy /y "%SDL_BIN%\%~1" "%RELEASE_DIR%\" >nul
-)
 exit /b 0
 
 :find_iscc
@@ -194,6 +172,20 @@ if not defined ISCC_PATH (
     if not defined ISCC_PATH set "ISCC_PATH=%%~fI"
   )
 )
+exit /b 0
+
+:prepare_branding_icon
+set "LOGO_PNG=assets\images\entities\logo.png"
+set "ICON_FILE=%RELEASE_DIR%\LightQuest.ico"
+
+if not exist "%LOGO_PNG%" (
+  echo Missing %LOGO_PNG%
+  exit /b 1
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%LOGO_PNG%" -IcoPath "%ICON_FILE%"
+if errorlevel 1 exit /b 1
+
 exit /b 0
 
 :build_setup_exe
@@ -224,8 +216,9 @@ set "SETUP_OUT_DIR=%CD%\dist"
   echo Compression=lzma
   echo SolidCompression=yes
   echo WizardStyle=modern
+  echo SetupIconFile=%CD%\%RELEASE_DIR%\LightQuest.ico
   echo PrivilegesRequired=lowest
-  echo UninstallDisplayIcon={app}\LightQuest.exe
+  echo UninstallDisplayIcon={app}\LightQuest.ico
   echo.
   echo [Languages]
   echo Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -237,8 +230,8 @@ set "SETUP_OUT_DIR=%CD%\dist"
   echo Source: "%CD%\%RELEASE_DIR%\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
   echo.
   echo [Icons]
-  echo Name: "{autoprograms}\LightQuest"; Filename: "{app}\LightQuest.exe"
-  echo Name: "{autodesktop}\LightQuest"; Filename: "{app}\LightQuest.exe"; Tasks: desktopicon
+  echo Name: "{autoprograms}\LightQuest"; Filename: "{app}\LightQuest.exe"; IconFilename: "{app}\LightQuest.ico"
+  echo Name: "{autodesktop}\LightQuest"; Filename: "{app}\LightQuest.exe"; IconFilename: "{app}\LightQuest.ico"; Tasks: desktopicon
   echo.
   echo [Run]
   echo Filename: "{app}\LightQuest.exe"; Description: "Launch LightQuest"; Flags: nowait postinstall skipifsilent
