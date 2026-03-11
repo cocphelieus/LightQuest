@@ -17,6 +17,17 @@
 
 namespace
 {
+    bool isMovementKeyHeld(const Uint8* keystate)
+    {
+        if (!keystate)
+            return false;
+
+        return keystate[SDL_SCANCODE_W] || keystate[SDL_SCANCODE_UP] ||
+               keystate[SDL_SCANCODE_S] || keystate[SDL_SCANCODE_DOWN] ||
+               keystate[SDL_SCANCODE_A] || keystate[SDL_SCANCODE_LEFT] ||
+               keystate[SDL_SCANCODE_D] || keystate[SDL_SCANCODE_RIGHT];
+    }
+
     const char* difficultyLabel(Difficulty difficulty)
     {
         if (difficulty == Difficulty::EASY)
@@ -151,6 +162,7 @@ void PlayScene::startLevel(Difficulty newDifficulty)
     testerShowAnswer = false;
     syncTesterOverlay();
     outcome = PlayOutcome::NONE;
+    blockMovementUntilRelease = true;
     levelStartTick = SDL_GetTicks();
     levelIntroUntilTick = levelStartTick + 2200;
 }
@@ -237,6 +249,9 @@ void PlayScene::load(SDL_Renderer* renderer)
 
 void PlayScene::handleEvent(SDL_Event &event)
 {
+    if (outcome != PlayOutcome::NONE || returnToMenu)
+        return;
+
     if (event.type == SDL_KEYDOWN)
     {
         if (kTesterEnabledBuild && event.key.keysym.sym == SDLK_t)
@@ -349,8 +364,19 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
 
 void PlayScene::update(float deltaTime)
 {
+    if (outcome != PlayOutcome::NONE || returnToMenu)
+        return;
+
     // move player using pixel-based motion
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
+
+    if (blockMovementUntilRelease)
+    {
+        if (isMovementKeyHeld(keystate))
+            return;
+
+        blockMovementUntilRelease = false;
+    }
 
     int oldRow = player.getRow();
     int oldCol = player.getCol();

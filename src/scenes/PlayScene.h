@@ -48,6 +48,7 @@ private:
     int campaignElapsedSeconds = 0;
     Uint32 levelStartTick = 0;
     Uint32 levelIntroUntilTick = 0;
+    bool blockMovementUntilRelease = false;
     void* uiFontRaw = nullptr;
     bool ttfInitByScene = false;
 
