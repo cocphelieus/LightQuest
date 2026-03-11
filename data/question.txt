@@ -235,3 +235,143 @@ Shortest Job First
 Round-Robin
 Priority scheduling
 C
+
+A CPU can have multiple execution units, therefore it can execute multiple instructions at the same time. This is called:
+Pipeline
+Superscalar
+Multicore
+None of the other choices
+B
+
+The four main structural components of a computer system are:
+Processor, Registers, I/O Modules, Main Memory
+Processor, Registers, Main Memory, System Bus
+Processor, Main Memory, I/O Modules, System Bus
+None of the other choices
+C
+
+Which instruction is allowed in user mode?
+Disable all interrupts
+Read the clock time of day
+Set the clock time of day
+Modify memory map
+B
+
+As we move down the memory hierarchy (from internal memory to external memory), which of the following is correct?
+Cost per bit increases
+Capacity decreases
+Access time increases
+None of the other choices
+C
+
+The information that must be saved before the processor transfers control to the interrupt handler program includes:
+PSW
+PSW and PC (Program Status Word and Program Counter)
+PSW and the contents of processor registers
+None of the other choices
+B
+
+Which of the following is not a main function of an operating system?
+Providing users with an extended virtual machine
+Managing I/O devices
+Providing a user interface and managing resources
+Supporting virtual memory
+D
+
+What is the main characteristic of a real-time operating system?
+Multiple CPUs
+Time sharing
+Time is a critical parameter
+Multiple I/O devices
+C
+
+Which of the following is not correct about system calls?
+A system call allows a user process to request and execute OS functions inside the kernel
+User programs use system calls to request OS services
+Using system calls is more efficient than using procedure calls
+Each system call has overhead due to context switching
+C
+
+Which of the following is a responsibility of process management in an operating system?
+Create and delete processes
+Suspend and resume processes
+Provide mechanisms for process synchronization, interprocess communication, and deadlock handling
+All of the other choices
+D
+
+A simple structural model for a monolithic system includes:
+A main program that invokes the requested service procedure
+A set of service procedures that implement system calls
+A set of utility procedures that help the service procedures
+All of the other choices
+D
+
+What is the concept of “sequential processes”?
+There are multiple CPUs and multiple PCs
+All processes execute concurrently
+There is no concurrency within a process; everything happens sequentially
+None of the other choices
+C
+
+Which process state transition occurs when the external event that a process is waiting for happens?
+Running → Blocked (Waiting)
+Running → Ready
+Blocked (Waiting) → Ready
+Ready → Running
+C
+
+How much CPU time is wasted if a computer system has enough memory to hold two programs and each program is idle waiting for I/O half of the time?
+5%
+25%
+75%
+None of the other choices
+B
+
+How many ways are there to implement threads?
+1
+2
+3
+None of the other choices
+C
+
+The concept of a Critical Region (Critical Section) in process communication refers to:
+A part of the program where shared memory is accessed
+A part of shared data
+A part of shared memory
+None of the other choices
+A
+
+Which of the following is a hardware solution to the critical section problem?
+TSL
+Shared memory
+Semaphore
+None of the other choices
+A
+
+Which of the following is correct about atomic operations on a semaphore?
+Check the value
+Modify the value
+May cause the process to sleep
+All of the other choices
+D
+
+Which of the following is a hardware solution to the critical section problem?
+Disable interrupts
+Monitor
+Semaphore
+None of the other choices
+A
+
+What is the purpose of CPU scheduling algorithms?
+Select one of the ready processes to run next
+Put processes to sleep and wake them up efficiently
+Allocate memory to processes fairly and efficiently
+None of the other choices
+A
+
+The First-Come First-Served (FCFS) algorithm is suitable for most ____ systems.
+Interactive
+Batch processing
+Real-time
+Multi-user
+B
