@@ -30,6 +30,7 @@ src/core/QuestionManager.cpp ^
 -lSDL2_ttf ^
 -static-libgcc ^
 -static-libstdc++ ^
+-mwindows ^
 -Wall
 
 if errorlevel 1 (
@@ -181,18 +182,6 @@ set "LOGO_ICO=assets\images\entities\logo.ico"
 set "ICON_FILE=%RELEASE_DIR%\LightQuest.ico"
 set "TEMP_PNG=%TEMP%\LightQuest_logo_tmp.png"
 
-if exist "%LOGO_ICO%" (
-  copy /y "%LOGO_ICO%" "%ICON_FILE%" >nul
-  if errorlevel 1 exit /b 1
-  exit /b 0
-)
-
-if exist "%LOGO_PNG%" (
-  powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%LOGO_PNG%" -IcoPath "%ICON_FILE%"
-  if errorlevel 1 exit /b 1
-  exit /b 0
-)
-
 if exist "%LOGO_AVIF%" (
   where magick >nul 2>&1
   if not errorlevel 1 (
@@ -219,6 +208,18 @@ if exist "%LOGO_AVIF%" (
   echo Found %LOGO_AVIF% but could not convert it to .ico.
   echo Install ImageMagick ^(magick^) or ffmpeg, or add assets\images\entities\logo.ico / logo.png.
   exit /b 1
+)
+
+if exist "%LOGO_ICO%" (
+  copy /y "%LOGO_ICO%" "%ICON_FILE%" >nul
+  if errorlevel 1 exit /b 1
+  exit /b 0
+)
+
+if exist "%LOGO_PNG%" (
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%LOGO_PNG%" -IcoPath "%ICON_FILE%"
+  if errorlevel 1 exit /b 1
+  exit /b 0
 )
 
 echo Missing icon source. Expected one of:

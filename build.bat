@@ -26,6 +26,7 @@ src/core/QuestionManager.cpp ^
 -lSDL2_ttf ^
 -static-libgcc ^
 -static-libstdc++ ^
+-mwindows ^
 -Wall
 
 if %errorlevel% neq 0 (
