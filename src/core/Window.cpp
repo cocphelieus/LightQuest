@@ -1,4 +1,5 @@
 #include "Window.h"
+#include <SDL2/SDL_image.h>
 
 bool Window::init(const char* title, int w, int h) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -14,6 +15,21 @@ bool Window::init(const char* title, int w, int h) {
         w, h,
         SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
     );
+
+    if (window)
+    {
+        SDL_Surface* iconSurface = IMG_Load("assets/images/entities/logo.avif");
+        if (!iconSurface)
+            iconSurface = IMG_Load("assets/images/entities/logo.png");
+        if (!iconSurface)
+            iconSurface = IMG_Load("assets/images/entities/bot.png");
+
+        if (iconSurface)
+        {
+            SDL_SetWindowIcon(window, iconSurface);
+            SDL_FreeSurface(iconSurface);
+        }
+    }
 
     renderer = SDL_CreateRenderer(
         window,

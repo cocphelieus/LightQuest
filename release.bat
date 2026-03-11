@@ -69,7 +69,7 @@ if errorlevel 1 (
 call :prepare_branding_icon
 if errorlevel 1 (
   echo.
-  echo Failed to create game icon from assets\images\entities\logo.png.
+  echo Failed to create game icon from new branding source.
   popd >nul
   exit /b 1
 )
@@ -176,15 +176,56 @@ exit /b 0
 
 :prepare_branding_icon
 set "LOGO_PNG=assets\images\entities\logo.png"
+set "LOGO_AVIF=assets\images\entities\logo.avif"
+set "LOGO_ICO=assets\images\entities\logo.ico"
 set "ICON_FILE=%RELEASE_DIR%\LightQuest.ico"
+set "TEMP_PNG=%TEMP%\LightQuest_logo_tmp.png"
 
-if not exist "%LOGO_PNG%" (
-  echo Missing %LOGO_PNG%
+if exist "%LOGO_ICO%" (
+  copy /y "%LOGO_ICO%" "%ICON_FILE%" >nul
+  if errorlevel 1 exit /b 1
+  exit /b 0
+)
+
+if exist "%LOGO_PNG%" (
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%LOGO_PNG%" -IcoPath "%ICON_FILE%"
+  if errorlevel 1 exit /b 1
+  exit /b 0
+)
+
+if exist "%LOGO_AVIF%" (
+  where magick >nul 2>&1
+  if not errorlevel 1 (
+    magick "%LOGO_AVIF%" -resize 256x256 "%TEMP_PNG%" >nul 2>&1
+    if exist "%TEMP_PNG%" (
+      powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%TEMP_PNG%" -IcoPath "%ICON_FILE%"
+      del /f /q "%TEMP_PNG%" >nul 2>&1
+      if errorlevel 1 exit /b 1
+      exit /b 0
+    )
+  )
+
+  where ffmpeg >nul 2>&1
+  if not errorlevel 1 (
+    ffmpeg -y -i "%LOGO_AVIF%" -vf scale=256:256 "%TEMP_PNG%" >nul 2>&1
+    if exist "%TEMP_PNG%" (
+      powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%TEMP_PNG%" -IcoPath "%ICON_FILE%"
+      del /f /q "%TEMP_PNG%" >nul 2>&1
+      if errorlevel 1 exit /b 1
+      exit /b 0
+    )
+  )
+
+  echo Found %LOGO_AVIF% but could not convert it to .ico.
+  echo Install ImageMagick ^(magick^) or ffmpeg, or add assets\images\entities\logo.ico / logo.png.
   exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%LOGO_PNG%" -IcoPath "%ICON_FILE%"
-if errorlevel 1 exit /b 1
+echo Missing icon source. Expected one of:
+echo - %LOGO_ICO%
+echo - %LOGO_PNG%
+echo - %LOGO_AVIF%
+exit /b 1
 
 exit /b 0
 
