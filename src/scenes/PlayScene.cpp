@@ -211,40 +211,6 @@ void PlayScene::load(SDL_Renderer* renderer)
         );
     }
 
-    if (campaignStage == 0)
-    {
-        const char* introMessage =
-            "CONTROLS\n"
-            "- WASD / Arrow keys: Move\n"
-            "- ESC: Return to menu\n"
-            "\n"
-            "TORCH RULES\n"
-            "- Touch a torch: Open a question\n"
-            "- Correct answer: Reveal a safe path\n"
-            "- Wrong answer: Torch is locked\n"
-            "\n"
-            "OBJECTIVE\n"
-            "- Activate torches and find the route to the goal\n"
-            "\n"
-            "QUICK TIP\n"
-            "- Move carefully, watch the HUD, and reveal the map step by step.";
-
-        SDL_MessageBoxButtonData buttons[] = {
-            {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "START"}
-        };
-
-        SDL_MessageBoxData boxData;
-        boxData.flags = SDL_MESSAGEBOX_INFORMATION;
-        boxData.window = nullptr;
-        boxData.title = "LIGHTQUEST - GUIDE";
-        boxData.message = introMessage;
-        boxData.numbuttons = 1;
-        boxData.buttons = buttons;
-        boxData.colorScheme = nullptr;
-
-        int buttonId = 0;
-        SDL_ShowMessageBox(&boxData, &buttonId);
-    }
 }
 
 void PlayScene::handleEvent(SDL_Event &event)

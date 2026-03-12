@@ -1,4 +1,5 @@
 #include "MenuScene.h"
+#include "../core/SoundManager.h"
 #include <SDL2/SDL_image.h>
 #include <fstream>
 #include <sstream>
@@ -111,9 +112,14 @@ bool MenuScene::load(SDL_Renderer* renderer) {
     int qCenterX = screenWidth / 2;
     int qY = (screenHeight / 2) + 120;
 
+    exitYesWidth = qBtnW;
+    exitYesHeight = qBtnH;
+    exitYesBaseX = qCenterX - qBtnW - qSpacing / 2;
+    exitYesBaseY = qY;
+
     overlayYesButton = std::make_unique<Button>(
-        qCenterX - qBtnW - qSpacing / 2,
-        qY,
+        exitYesBaseX,
+        exitYesBaseY,
         qBtnW,
         qBtnH,
         "assets/images/button/btn_co.png"
@@ -147,8 +153,44 @@ bool MenuScene::load(SDL_Renderer* renderer) {
         gHandCursor = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
 
     refreshRankings();
+    resetExitConfirmTroll();
 
     return true;
+}
+
+void MenuScene::resetExitConfirmTroll()
+{
+    // Re-seed required click count each time exit popup opens (6 to 8).
+    exitConfirmClickCount = 0;
+    exitConfirmClicksRequired = 6 + static_cast<int>(SDL_GetTicks() % 3U);
+    exitNextEvadeTick = 0;
+    exitYesCurrentX = exitYesBaseX;
+    exitYesCurrentY = exitYesBaseY;
+    if (overlayYesButton)
+        overlayYesButton->setPosition(exitYesBaseX, exitYesBaseY);
+}
+
+void MenuScene::shuffleExitYesButton()
+{
+    if (!overlayYesButton)
+        return;
+
+    // Keep movement inside the popup action area so the button remains visible
+    // but still annoying to click repeatedly.
+    const int minX = (screenWidth / 2) - 360;
+    const int maxX = (screenWidth / 2) - exitYesWidth - 50;
+    const int minY = (screenHeight / 2) + 78;
+    const int maxY = (screenHeight / 2) + 178;
+
+    const int spanX = (maxX > minX) ? (maxX - minX + 1) : 1;
+    const int spanY = (maxY > minY) ? (maxY - minY + 1) : 1;
+
+    Uint32 t = SDL_GetTicks();
+    int newX = minX + static_cast<int>(((t * 37U) + 17U) % static_cast<Uint32>(spanX));
+    int newY = minY + static_cast<int>(((t * 53U) + 29U) % static_cast<Uint32>(spanY));
+    exitYesCurrentX = newX;
+    exitYesCurrentY = newY;
+    overlayYesButton->setPosition(newX, newY);
 }
 
 void MenuScene::refreshRankings()
@@ -245,22 +287,35 @@ void MenuScene::handleEvent(SDL_Event& event) {
             // If quit overlay, check yes/no first
             if (currentOverlayType == OverlayType::EXIT) {
                 if (overlayYesButton && overlayYesButton->isClicked(mx, my)) {
-                    currentState = MenuState::EXIT;
-                    overlayVisible = false;
-                    currentOverlayType = OverlayType::NONE;
-                    currentOverlayPage = 0;
+                    SoundManager::instance().playClick();
+                    exitConfirmClickCount++;
+                    if (exitConfirmClickCount >= exitConfirmClicksRequired) {
+                        // Exit succeeds only after the required number of yes clicks.
+                        currentState = MenuState::EXIT;
+                        overlayVisible = false;
+                        currentOverlayType = OverlayType::NONE;
+                        currentOverlayPage = 0;
+                        resetExitConfirmTroll();
+                    } else {
+                        // Not enough clicks yet: move yes button to new position.
+                        shuffleExitYesButton();
+                    }
                 } else if (overlayNoButton && overlayNoButton->isClicked(mx, my)) {
+                    SoundManager::instance().playClick();
                     overlayVisible = false;
                     currentOverlayType = OverlayType::NONE;
                     currentOverlayPage = 0;
+                    resetExitConfirmTroll();
                 }
                 return;
             }
 
             if (overlayCloseButton && overlayCloseButton->isClicked(mx, my)) {
+                SoundManager::instance().playClick();
                 overlayVisible = false;
                 currentOverlayType = OverlayType::NONE;
                 currentOverlayPage = 0;
+                resetExitConfirmTroll();
             }
             return;
         }
@@ -271,6 +326,7 @@ void MenuScene::handleEvent(SDL_Event& event) {
                 overlayVisible = false;
                 currentOverlayType = OverlayType::NONE;
                 currentOverlayPage = 0;
+                resetExitConfirmTroll();
                 return;
             }
             if (event.key.keysym.sym == SDLK_RIGHT) {
@@ -292,15 +348,18 @@ void MenuScene::handleEvent(SDL_Event& event) {
 
     if (event.type == SDL_KEYDOWN) {
         if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER) {
+            SoundManager::instance().playClick();
             currentState = MenuState::PLAY;
             return;
         }
 
         if (event.key.keysym.sym == SDLK_ESCAPE) {
+            SoundManager::instance().playClick();
             if (quitTexture) {
                 currentOverlayType = OverlayType::EXIT;
                 currentOverlayPage = 0;
                 overlayVisible = true;
+                resetExitConfirmTroll();
             } else {
                 currentState = MenuState::EXIT;
             }
@@ -326,6 +385,8 @@ void MenuScene::handleEvent(SDL_Event& event) {
 }
 
 void MenuScene::handleButtonClick(int buttonIndex) {
+    SoundManager::instance().playClick();
+
     switch (buttonIndex) {
         case 0: // START
             SDL_Log("START button clicked!");
@@ -346,7 +407,11 @@ void MenuScene::handleButtonClick(int buttonIndex) {
         case 4: // EXIT
             SDL_Log("EXIT button clicked!");
             // show quit confirmation overlay instead of exiting immediately
-            if (quitTexture) { currentOverlayType = OverlayType::EXIT; overlayVisible = true; }
+            if (quitTexture) {
+                currentOverlayType = OverlayType::EXIT;
+                overlayVisible = true;
+                resetExitConfirmTroll();
+            }
             else { currentState = MenuState::EXIT; }
             break;
     }
@@ -363,6 +428,21 @@ void MenuScene::update() {
     // If overlay is visible, update overlay controls and cursor, skip main buttons
     if (overlayVisible) {
         if (currentOverlayType == OverlayType::EXIT) {
+            if (overlayYesButton) {
+                // Extra troll: if cursor comes too close, yes button dodges periodically.
+                int yesCenterX = exitYesCurrentX + (exitYesWidth / 2);
+                int yesCenterY = exitYesCurrentY + (exitYesHeight / 2);
+                int dx = mouseX - yesCenterX;
+                int dy = mouseY - yesCenterY;
+                int distanceSq = dx * dx + dy * dy;
+                int radiusSq = exitEvadeRadius * exitEvadeRadius;
+                Uint32 now = SDL_GetTicks();
+                if (distanceSq <= radiusSq && now >= exitNextEvadeTick && exitConfirmClickCount < exitConfirmClicksRequired) {
+                    shuffleExitYesButton();
+                    exitNextEvadeTick = now + 140;
+                }
+            }
+
             if (overlayYesButton) overlayYesButton->update(mouseX, mouseY);
             if (overlayNoButton) overlayNoButton->update(mouseX, mouseY);
 
@@ -505,19 +585,14 @@ void MenuScene::render(SDL_Renderer* renderer) {
             if (overlayYesButton) overlayYesButton->render(renderer);
             if (overlayNoButton) overlayNoButton->render(renderer);
         } else if (currentOverlayType == OverlayType::RANK) {
+            // Ranking overlay: intentionally minimalist (no outer panel border/background fill)
+            // to let the menu background remain visible.
             SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 140);
             SDL_Rect dim = {0, 0, screenWidth, screenHeight};
             SDL_RenderFillRect(renderer, &dim);
 
-            SDL_Rect board = {screenWidth / 2 - 380, screenHeight / 2 - 255, 760, 470};
-            SDL_SetRenderDrawColor(renderer, 10, 18, 28, 225);
-            SDL_RenderFillRect(renderer, &board);
-            SDL_SetRenderDrawColor(renderer, 120, 200, 220, 220);
-            SDL_RenderDrawRect(renderer, &board);
-
-            SDL_Rect titleRect = {board.x, board.y + 20, board.w, 56};
-            renderTextCentered(renderer, quitBodyFontRaw, "LOCAL TOP 5 - FASTEST 5-STAGE CLEAR", titleRect, SDL_Color{170, 230, 245, 255});
+            SDL_Rect board = {screenWidth / 2 - 380, screenHeight / 2 - 225, 760, 470};
 
             SDL_Rect headerBand = {board.x + 36, board.y + 76, board.w - 72, 38};
             SDL_SetRenderDrawColor(renderer, 22, 42, 62, 170);

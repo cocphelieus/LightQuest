@@ -14,10 +14,13 @@ public:
     MapManager();
     ~MapManager();
 
+    // Load background and tile/entity textures.
     bool load(SDL_Renderer* renderer, const char* backgroundPath, Difficulty difficulty = Difficulty::MEDIUM);
     void cleanTextures(SDL_Renderer* renderer); // helper for loading/clearing entity textures
+    // Draw map cells, fog/shadow layer, hints, and entity icons.
     void render(SDL_Renderer* renderer);
     void clean();
+    // Generate a fresh stage layout and reset all runtime map state.
     void reset(Difficulty difficulty, int campaignStage = 0);
 
     int getTile(int row, int col) const;
@@ -26,6 +29,7 @@ public:
     bool isTorch(int row, int col) const;
     bool isGoal(int row, int col) const;
 
+    // Torch interaction and reveal pipeline used by PlayScene.
     bool canAttemptTorch(int row, int col) const;
     void resolveTorch(int row, int col, bool correctAnswer);
     bool activateStarterTorch();
@@ -36,6 +40,7 @@ public:
     void revealShadowAround(int row, int col, int radius);
     bool spawnTorchInOpenedArea(int centerRow, int centerCol, int maxDistance);
     void spawnNextWave(int playerRow, int playerCol, int mineToAdd, int torchToAdd);
+    // Reveal a guided safe path and return whether a target torch was found.
     bool revealPathToNextTorch(int fromRow, int fromCol, int solvedTorchCount);
     void hintNearestTorch(int fromRow, int fromCol);
     void clearTorchHint();
@@ -44,6 +49,7 @@ public:
     int getSolvedTorchCount() const;
     bool isKnown(int row, int col) const;
     bool isDetailVisible(int row, int col) const;
+    // Debug/test overlay toggles (non-standard player feature).
     void setTesterOverlay(bool revealMines, bool revealTorches);
 
     int getRows() const { return ROWS; }

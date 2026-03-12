@@ -14,12 +14,14 @@ struct Question {
 
 class QuestionManager {
 public:
+    // Parse questions from text file into memory.
     bool loadFromFile(const char* path);
     bool hasQuestions() const { return !questions.empty(); }
     int getCount() const { return static_cast<int>(questions.size()); }
-    // Presents a question using an in-game overlay panel; returns true if answered correctly.
+    // Present a question in an overlay and return whether the player answered correctly.
+    // showCorrectAnswer is used by tester/debug mode.
     bool askQuestion(int index, SDL_Renderer* renderer, bool showCorrectAnswer = false);
-    // get a random index
+    // Pick a random question index from loaded list.
     int randomIndex() const;
 
 private:

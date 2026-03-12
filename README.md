@@ -2,6 +2,12 @@
 
 A C++ quiz game built with SDL2, designed to create an interactive learning experience through engaging gameplay mechanics.
 
+## Developer Documentation
+
+For code walkthrough, module responsibilities, data formats, and maintenance notes, see:
+
+- docs/DEVELOPER_DOCS.md
+
 ## About the Project
 
 **LightQuest** is an educational quiz game where players navigate through game scenes, answer questions, and compete for high scores. The game features:

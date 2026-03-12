@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "SoundManager.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <cstdio>
@@ -525,6 +526,8 @@ static bool showGameOverScreen(SDL_Renderer* renderer)
     bool shouldQuit = false;
     bool done = false;
 
+    // Keep a minimum display time so players can perceive failure feedback,
+    // then allow skip via key/mouse input.
     while (!done)
     {
         SDL_Event event;
@@ -582,9 +585,14 @@ void Game::run()
     // ===== Init Window =====
     window.init("LightQuest", 1280, 720);
 
+    SoundManager& sound = SoundManager::instance();
+    sound.init();
+    sound.loadAssets();
+
     // ===== Load Scenes =====
     loading.load(window.getRenderer());
     menu.load(window.getRenderer());
+    sound.playMenuBgm();
 
     SDL_Event event;
     lastFrameTime = SDL_GetTicks();
@@ -595,6 +603,7 @@ void Game::run()
     int campaignElapsedSeconds = 0;
 
     // ===== Main Game Loop =====
+    // The loop is split into: event handling, update, render, then FPS cap.
     while (running)
     {
         Uint32 frameStart = SDL_GetTicks();
@@ -621,6 +630,7 @@ void Game::run()
                 event.key.keysym.sym == SDLK_SPACE)
             {
                 currentState = GameState::MENU;
+                sound.playMenuBgm();
             }
 
             // MENU
@@ -633,9 +643,11 @@ void Game::run()
 
                 if (menu.getState() == MenuState::PLAY)
                 {
+                    // Starting gameplay: stop menu BGM so background music stays in menu only.
                     campaignStage = 0;
                     campaignStartTick = SDL_GetTicks();
                     campaignElapsedSeconds = 0;
+                    sound.stopMusic(180);
                     currentState = GameState::PLAYING;
                     startCampaignFromBeginning(play, window.getRenderer());
                     play.setCampaignElapsedSeconds(campaignElapsedSeconds);
@@ -657,7 +669,10 @@ void Game::run()
         case GameState::LOADING:
             loading.update(deltaTime);
             if (loading.isComplete())
+            {
                 currentState = GameState::MENU;
+                sound.playMenuBgm();
+            }
             break;
 
         case GameState::MENU:
@@ -676,6 +691,8 @@ void Game::run()
                 {
                     if (campaignStage < finalCampaignStage)
                     {
+                        // Between stages we play a short transition cue, then show stage-clear popup.
+                        sound.playTransition();
                         bool quitFromStagePopup = showStageClearMessage(window.getRenderer(), campaignStage);
                         if (quitFromStagePopup)
                         {
@@ -687,6 +704,8 @@ void Game::run()
 
                     if (campaignStage > finalCampaignStage)
                     {
+                        // Campaign completion flow: play win cue, write ranking, show summary popup.
+                        sound.playWin();
                         int rankingPlace = addCampaignClearToRanking(campaignElapsedSeconds);
                         bool quitFromComplete = showCampaignCompleteMessage(window.getRenderer(), campaignStage - 1, campaignElapsedSeconds, rankingPlace);
                         if (quitFromComplete)
@@ -696,6 +715,7 @@ void Game::run()
                         }
                         menu.refreshRankings();
                         currentState = GameState::MENU;
+                        sound.playMenuBgm();
                         menu.resetToMain();
                         play.clean();
                         campaignStage = 0;
@@ -713,6 +733,10 @@ void Game::run()
                 {
                     if (outcome == PlayOutcome::FAILED)
                     {
+                        // Failure flow is split in two layers:
+                        // 1) immediate bomb/death sequence
+                        // 2) loss cue + game-over screen
+                        sound.playBomb();
                         bool quitFromDeath = play.playDeathSequence(window.getRenderer());
                         if (quitFromDeath)
                         {
@@ -720,15 +744,41 @@ void Game::run()
                             break;
                         }
 
+                        sound.playLoss();
                         bool quitRequested = showGameOverScreen(window.getRenderer());
                         if (quitRequested)
                         {
                             running = false;
                             break;
                         }
+
+                        // Keep the tail of loss cue audible before menu BGM resumes.
+                        Uint32 waitStart = SDL_GetTicks();
+                        const Uint32 maxLossTailMs = 1600;
+                        while (sound.isLossPlaying() && (SDL_GetTicks() - waitStart) < maxLossTailMs)
+                        {
+                            SDL_Event tailEvent;
+                            while (SDL_PollEvent(&tailEvent))
+                            {
+                                if (tailEvent.type == SDL_QUIT)
+                                {
+                                    running = false;
+                                    break;
+                                }
+                            }
+
+                            if (!running)
+                                break;
+
+                            SDL_Delay(16);
+                        }
+
+                        if (!running)
+                            break;
                     }
 
                     currentState = GameState::MENU;
+                    sound.playMenuBgm();
                     menu.resetToMain();
                     play.clean();
                     campaignStage = 0;
@@ -774,5 +824,6 @@ void Game::run()
     play.clean();
     menu.clean();
     loading.clean();
+    sound.shutdown();
     window.clean();
 }

@@ -15,7 +15,9 @@ enum class MenuState {
 class MenuScene {
 public:
     struct RankingEntry {
+        // Total clear time in seconds.
         int seconds = 0;
+        // Human-readable completion timestamp.
         std::string timestamp;
     };
 
@@ -33,6 +35,7 @@ public:
     MenuState getState() const { return currentState; }
 
 private:
+    // Convert window pixel coordinates to renderer logical coordinates.
     void mapMouseToLogical(int inX, int inY, int& outX, int& outY) const;
 
     SDL_Renderer* rendererRef = nullptr;
@@ -55,7 +58,7 @@ private:
     SDL_Texture* storyTexture2 = nullptr;
     SDL_Texture* guideTexture2 = nullptr;
 
-    // Current overlay control
+    // Overlay mode control for story/guide/rank/exit-confirm layers.
     enum class OverlayType { NONE, STORY, GUIDE, RANK, EXIT };
     OverlayType currentOverlayType = OverlayType::NONE;
     int currentOverlayPage = 0; // 0 = first page, 1 = second page (if any)
@@ -64,14 +67,30 @@ private:
     // Close/back button shown while overlay is visible
     std::unique_ptr<Button> overlayCloseButton;
 
-    // Quit confirmation overlay
+    // Quit confirmation overlay (with troll yes-button behavior).
     SDL_Texture* quitTexture = nullptr;
     SDL_Texture* quitPanelTexture = nullptr;
     std::unique_ptr<Button> overlayYesButton;
     std::unique_ptr<Button> overlayNoButton;
+    int exitYesBaseX = 0;
+    int exitYesBaseY = 0;
+    int exitYesCurrentX = 0;
+    int exitYesCurrentY = 0;
+    int exitYesWidth = 160;
+    int exitYesHeight = 64;
+    int exitConfirmClickCount = 0;
+    // Randomized to 6-8 clicks each time popup opens.
+    int exitConfirmClicksRequired = 6;
+    Uint32 exitNextEvadeTick = 0;
+    int exitEvadeRadius = 95;
     void* quitTitleFontRaw = nullptr;
     void* quitBodyFontRaw = nullptr;
     bool ttfInitByScene = false;
+
+    // Reset click counter and restore yes button to base position.
+    void resetExitConfirmTroll();
+    // Move yes button to a new position inside allowed region.
+    void shuffleExitYesButton();
     
     void initializeButtons();
     void handleButtonClick(int buttonIndex);
