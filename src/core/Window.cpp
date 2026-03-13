@@ -18,7 +18,7 @@ bool Window::init(const char* title, int w, int h) {
 
     if (window)
     {
-        SDL_Surface* iconSurface = IMG_Load("assets/images/entities/logo.avif");
+        SDL_Surface* iconSurface = IMG_Load("assets/images/entities/logo.png");
         if (!iconSurface)
             iconSurface = IMG_Load("assets/images/entities/logo.png");
         if (!iconSurface)
