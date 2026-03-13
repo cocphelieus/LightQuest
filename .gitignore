@@ -1,6 +1,7 @@
 # build
 *.exe
 build/
+dist/
 
 # SDL runtime
 third_party/bin/*.dll
@@ -14,3 +15,4 @@ Thumbs.db
 
 # local build overrides (do not ship)
 local/Tester.local.h
+
