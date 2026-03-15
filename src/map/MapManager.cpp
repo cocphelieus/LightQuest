@@ -1506,7 +1506,7 @@ void MapManager::render(SDL_Renderer* renderer)
             tileRect.y = offsetY + r * TILE_SIZE;
             bool alwaysRevealGoalTile = map[r][c] == GOAL;
             bool testerRevealTorchTile = kTesterEnabledBuild && testerRevealTorches && map[r][c] == TORCH;
-            bool testerRevealMineTile = kTesterEnabledBuild && testerRevealMines && map[r][c] == MINE;
+            bool testerRevealMineTile = testerRevealMines && map[r][c] == MINE;
             bool testerRevealTile = testerRevealTorchTile || testerRevealMineTile;
             bool revealDetailTile = visible[r][c] || testerRevealTile || alwaysRevealGoalTile;
 
@@ -2664,17 +2664,10 @@ bool MapManager::isDetailVisible(int row, int col) const
     return visible[row][col];
 }
 
-// Bật/tắt overlay chết (hiện mìn/torch) cho chế độ tester debug.
-// Khi không phải build tester, luôn tắt.
+// Bật/tắt overlay hiện mìn/torch.
+// Logic kiểm soát build-type do caller (PlayScene) xử lý; hàm này chỉ gán giá trị.
 void MapManager::setTesterOverlay(bool revealMines, bool revealTorches)
 {
-    if (!kTesterEnabledBuild)
-    {
-        testerRevealMines = false;
-        testerRevealTorches = false;
-        return;
-    }
-
     testerRevealMines = revealMines;
     testerRevealTorches = revealTorches;
 }

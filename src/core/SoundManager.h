@@ -22,6 +22,8 @@ public:
     void playBomb();
     // Loss cue played at game-over flow.
     void playLoss();
+    // Immediately stop the loss cue (e.g. when leaving game-over screen).
+    void stopLoss();
     // Used by Game loop to avoid cutting off the tail of loss cue too early.
     bool isLossPlaying() const;
     // Win cue when finishing all campaign stages.

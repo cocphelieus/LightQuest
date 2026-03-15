@@ -759,38 +759,14 @@ void Game::run()
                             running = false;
                             break;
                         }
-
                         sound.playLoss();
                         bool quitRequested = showGameOverScreen(window.getRenderer());
+                        sound.stopLoss();
                         if (quitRequested)
                         {
                             running = false;
                             break;
                         }
-
-                        // Chờ đuôi tiếng thua phát xong trước khi nhạc menu bắt đầu lại.
-                        Uint32 waitStart = SDL_GetTicks();
-                        const Uint32 maxLossTailMs = 1600;
-                        while (sound.isLossPlaying() && (SDL_GetTicks() - waitStart) < maxLossTailMs)
-                        {
-                            SDL_Event tailEvent;
-                            while (SDL_PollEvent(&tailEvent))
-                            {
-                                if (tailEvent.type == SDL_QUIT)
-                                {
-                                    running = false;
-                                    break;
-                                }
-                            }
-
-                            if (!running)
-                                break;
-
-                            SDL_Delay(16);
-                        }
-
-                        if (!running)
-                            break;
                     }
 
                     currentState = GameState::MENU;

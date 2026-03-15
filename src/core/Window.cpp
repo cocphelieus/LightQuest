@@ -22,11 +22,11 @@ bool Window::init(const char* title, int w, int h) {
     // Gán icon cửa sổ từ file ảnh logo (thử nhiều tên file phòng trường hợp thiếu).
     if (window)
     {
-        SDL_Surface* iconSurface = IMG_Load("assets/images/entities/logo.png");
+        SDL_Surface* iconSurface = IMG_Load("assets/images/entities/logo_new.png");
         if (!iconSurface)
-            iconSurface = IMG_Load("assets/images/entities/logo.png");
+            iconSurface = IMG_Load("assets/images/entities/logo_256.png");
         if (!iconSurface)
-            iconSurface = IMG_Load("assets/images/entities/bot.png");
+            iconSurface = IMG_Load("assets/images/entities/logo.ico");
 
         if (iconSurface)
         {

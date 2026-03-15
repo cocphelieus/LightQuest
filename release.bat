@@ -4,7 +4,22 @@ setlocal EnableExtensions EnableDelayedExpansion
 set "SCRIPT_DIR=%~dp0"
 pushd "%SCRIPT_DIR%" >nul
 
-echo [1/4] Building LightQuest...
+echo [1/4] Building LightQuest (Release - Tester disabled)...
+
+REM Kiểm tra Tester.local.h không bật LIGHTQUEST_ENABLE_TESTER trong release build.
+if exist "local\Tester.local.h" (
+  powershell -NoProfile -Command ^
+    "if (Select-String -Path 'local\Tester.local.h' -Pattern '^\s*#define\s+LIGHTQUEST_ENABLE_TESTER\s+[1-9]') { exit 1 } else { exit 0 }"
+  if not errorlevel 1 (
+    echo OK: Tester mode is disabled.
+  ) else (
+    echo.
+    echo [ERROR] local\Tester.local.h dang bat LIGHTQUEST_ENABLE_TESTER.
+    echo         Hay comment lai dong #define LIGHTQUEST_ENABLE_TESTER 1 truoc khi build release.
+    popd ^>nul
+    exit /b 1
+  )
+)
 
 set "SOUND_FLAGS="
 set "MIXER_LIB_DIR="
@@ -200,45 +215,8 @@ if not defined ISCC_PATH (
 exit /b 0
 
 :prepare_branding_icon
-set "LOGO_PNG=assets\images\entities\logo.png"
-set "LOGO_AVIF=assets\images\entities\logo.avif"
-set "LOGO_ICO=assets\images\entities\logo.ico"
+set "LOGO_PNG=assets\images\entities\logo_new.png"
 set "ICON_FILE=%RELEASE_DIR%\LightQuest.ico"
-set "TEMP_PNG=%TEMP%\LightQuest_logo_tmp.png"
-
-if exist "%LOGO_AVIF%" (
-  where magick >nul 2>&1
-  if not errorlevel 1 (
-    magick "%LOGO_AVIF%" -resize 256x256 "%TEMP_PNG%" >nul 2>&1
-    if exist "%TEMP_PNG%" (
-      powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%TEMP_PNG%" -IcoPath "%ICON_FILE%"
-      del /f /q "%TEMP_PNG%" >nul 2>&1
-      if errorlevel 1 exit /b 1
-      exit /b 0
-    )
-  )
-
-  where ffmpeg >nul 2>&1
-  if not errorlevel 1 (
-    ffmpeg -y -i "%LOGO_AVIF%" -vf scale=256:256 "%TEMP_PNG%" >nul 2>&1
-    if exist "%TEMP_PNG%" (
-      powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%TEMP_PNG%" -IcoPath "%ICON_FILE%"
-      del /f /q "%TEMP_PNG%" >nul 2>&1
-      if errorlevel 1 exit /b 1
-      exit /b 0
-    )
-  )
-
-  echo Found %LOGO_AVIF% but could not convert it to .ico.
-  echo Install ImageMagick ^(magick^) or ffmpeg, or add assets\images\entities\logo.ico / logo.png.
-  exit /b 1
-)
-
-if exist "%LOGO_ICO%" (
-  copy /y "%LOGO_ICO%" "%ICON_FILE%" >nul
-  if errorlevel 1 exit /b 1
-  exit /b 0
-)
 
 if exist "%LOGO_PNG%" (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%tools\MakeIcoFromPng.ps1" -PngPath "%LOGO_PNG%" -IcoPath "%ICON_FILE%"
@@ -246,10 +224,7 @@ if exist "%LOGO_PNG%" (
   exit /b 0
 )
 
-echo Missing icon source. Expected one of:
-echo - %LOGO_ICO%
-echo - %LOGO_PNG%
-echo - %LOGO_AVIF%
+echo Missing icon source: %LOGO_PNG%
 exit /b 1
 
 exit /b 0

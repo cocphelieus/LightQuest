@@ -465,12 +465,47 @@ bool PlayScene::playDeathSequence(SDL_Renderer* renderer)
     if (explosionTexture)
         SDL_DestroyTexture(explosionTexture);
 
+    // Giữ màn hình map + hiện toàn bộ mìn sau khi nổ để người chơi quan sát.
+    // Tối đa 3 giây, người chơi có thể nhấn phím/chuột để bỏ qua.
+    if (!shouldQuit)
+    {
+        const Uint32 revealDurationMs = 3000;
+        Uint32 revealStart = SDL_GetTicks();
+        bool revealDone = false;
+
+        while (!revealDone)
+        {
+            SDL_Event event;
+            while (SDL_PollEvent(&event))
+            {
+                if (event.type == SDL_QUIT)
+                {
+                    shouldQuit = true;
+                    revealDone = true;
+                    break;
+                }
+                if (event.type == SDL_KEYDOWN || event.type == SDL_MOUSEBUTTONDOWN)
+                    revealDone = true;
+            }
+
+            if (SDL_GetTicks() - revealStart >= revealDurationMs)
+                revealDone = true;
+
+            map.render(renderer);
+            player.render(renderer, map.getRenderOffsetX(), map.getRenderOffsetY());
+            SDL_RenderPresent(renderer);
+            SDL_Delay(16);
+        }
+    }
+
+    // Hiện dialog thông báo chết — mìn vẫn đang được hiện trên map phía sau.
+    // Người chơi quan sát vị trí bom xong rồi nhấn OK mới thoát.
     if (!shouldQuit)
     {
         SDL_ShowSimpleMessageBox(
             SDL_MESSAGEBOX_ERROR,
-            "Defeat",
-            "You stepped on a mine. All mine positions were revealed.",
+            "Ban da chet!",
+            "Ban da buoc vao min. Hay quan sat vi tri cac min truoc khi tiep tuc.",
             nullptr
         );
     }

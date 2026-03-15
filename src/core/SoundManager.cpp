@@ -308,6 +308,16 @@ void SoundManager::playLoss()
 #endif
 }
 
+void SoundManager::stopLoss()
+{
+#if LIGHTQUEST_HAS_SDL_MIXER
+    if (!impl || !impl->initialized)
+        return;
+
+    Mix_HaltChannel(Impl::kLossChannel);
+#endif
+}
+
 bool SoundManager::isLossPlaying() const
 {
 #if !LIGHTQUEST_HAS_SDL_MIXER
