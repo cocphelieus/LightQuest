@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <random>
 
+// Khởi tạo RNG và đặt trạng thái map về mặc định.
 MapManager::MapManager()
 {
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
@@ -20,6 +21,8 @@ MapManager::~MapManager()
     clean();
 }
 
+// Xóa sạch toàn bộ grid: đặt mọi ô thành FLOOR, tắt fog, reset torchState.
+// Gọi lại mỗi khi bắt đầu stage mới (qua reset()).
 void MapManager::initializeMap()
 {
     for (int r = 0; r < ROWS; r++)
@@ -41,6 +44,8 @@ void MapManager::initializeMap()
     hintUntilTick = 0;
 }
 
+// Mở fog xung quanh ô xuất phát tùy theo độ khó:
+// EASY mở bán kính 1, MEDIUM/HARD chỉ mở đúng ô start.
 void MapManager::revealInitialArea()
 {
     int revealRadiusValue = 1;
@@ -52,6 +57,8 @@ void MapManager::revealInitialArea()
     revealRadius(startRow, startCol, revealRadiusValue, true);
 }
 
+// Đảm bảo luôn có ít nhất một torch trong khoảng cách 1-3 ô so với điểm start.
+// Được gọi sau khi sinh mạng lưới torch để không bị trường hợp không có torch khởi đầu.
 void MapManager::ensureStarterTorch()
 {
     int bestRow = -1;
@@ -110,6 +117,9 @@ void MapManager::ensureStarterTorch()
     torchState[bestRow][bestCol] = TORCH_NOT_USED;
 }
 
+// Đặt ngẫu nhiên `count` tile loại `tileType` vào map.
+// Với MINE: dùng thuật toán score theo vùng + khoảng cách để tránh cụm mìn dày.
+// Với các loại khác: chọn ngẫu nhiên thông thường.
 void MapManager::placeRandomTiles(int tileType, int count)
 {
     if (tileType == MINE)
@@ -178,7 +188,7 @@ void MapManager::placeRandomTiles(int tileType, int count)
                 if (startDistance <= 2 || goalDistance <= 1)
                     continue;
 
-                // Absolute non-adjacent rule: no mine can touch another mine.
+        // Quy tắc bắt buộc: không có mìn nào được tỏa nhô cạnh mìn khác.
                 if (hasMineWithinRadius(r, c, 1))
                     continue;
 
@@ -368,6 +378,8 @@ void MapManager::placeRandomTiles(int tileType, int count)
     }
 }
 
+// Đặt `count` mìn sao cho mỗi torch đều có ít nhất 1 mìn gần bên.
+// 4 pass: phân bố đều → đẩy lên 4 mìn/torch → bù torch thiếu → láp đầy.
 void MapManager::placeMinesNearTorches(int count)
 {
     if (count <= 0)
@@ -519,7 +531,7 @@ void MapManager::placeMinesNearTorches(int count)
     int targetCount = count;
     int placed = 0;
 
-    // Pass 1: distribute at least one mine near every torch (uniform spread first).
+    // Pass 1: phân phối ít nhất 1 mìn quanh mỗi torch để trải đều trước.
     for (size_t i = 0; i < torchCells.size() && placed < targetCount; i++)
     {
         int tr = torchCells[i].first;
@@ -531,7 +543,7 @@ void MapManager::placeMinesNearTorches(int count)
             placed++;
     }
 
-    // Pass 2: push each torch toward four nearby mines where possible.
+    // Pass 2: cố gắng đưa mỗi torch lên 4 mìn lân cận.
     for (size_t i = 0; i < torchCells.size() && placed < targetCount; i++)
     {
         int tr = torchCells[i].first;
@@ -543,7 +555,7 @@ void MapManager::placeMinesNearTorches(int count)
             placed++;
     }
 
-    // Pass 2b: enforce at least one nearby mine for torches that still have none.
+    // Pass 2b: bức ép ít nhất 1 mìn cho torch vẫn chưa có.
     for (size_t i = 0; i < torchCells.size() && placed < targetCount; i++)
     {
         int tr = torchCells[i].first;
@@ -555,7 +567,7 @@ void MapManager::placeMinesNearTorches(int count)
             placed++;
     }
 
-    // Pass 3: keep filling by selecting torches with lowest nearby mine coverage.
+    // Pass 3: tiếp tục lấp đầy bằng cách chọn torch có ít mìn lân cận nhất trước.
     int guard = 0;
     int maxGuard = static_cast<int>(torchCells.size()) * 10 + 32;
     while (placed < targetCount && guard < maxGuard)
@@ -611,6 +623,10 @@ void MapManager::placeMinesNearTorches(int count)
     }
 }
 
+// Đặt 1 tile đơn lẻ tại vị trí ngẫu nhiên thỏa mãn:
+// - Không trùng start/goal
+// - Nằm ngoài bán kính an toàn
+// - Khớp quy tắc visibility (HIDDEN_ONLY / VISIBLE_ONLY / ANY)
 bool MapManager::placeOneRandomTile(int tileType, int safeRow, int safeCol, int safeRadius, int visibilityRule, bool revealPlacedTile)
 {
     for (int attempt = 0; attempt < 500; attempt++)
@@ -661,6 +677,9 @@ bool MapManager::placeOneRandomTile(int tileType, int safeRow, int safeCol, int 
     return false;
 }
 
+// Vạch đường an toàn từ (fromRow,fromCol) đến (toRow,toCol).
+// Đi theo hướng gần đích nhất, tạo vài bước vòng ngẫu nhiên để đường không quá thẳng.
+// Các ô trên đường được đánh dấu safePath[] và mở fog.
 void MapManager::carveSafePath(int fromRow, int fromCol, int toRow, int toCol)
 {
     int r = fromRow;
@@ -861,6 +880,8 @@ void MapManager::carveSafePath(int fromRow, int fromCol, int toRow, int toCol)
     }
 }
 
+// Chọn ngẫu nhiên 1 ô FLOOR đã được mở fog, vầch đường tới đó và đặt torch.
+// Dùng để spawn torch khi player vừa giải xong một torch khác.
 bool MapManager::placeReachableVisibleTorch(int playerRow, int playerCol)
 {
     const int minTorchDistance = 2;
@@ -904,6 +925,8 @@ bool MapManager::placeReachableVisibleTorch(int playerRow, int playerCol)
     return true;
 }
 
+// Tạo lại toàn bộ stage: đặt số mìn/torch theo difficulty và campaign stage,
+// sinh mạng lưới torch, vạch đường an toàn, rồi reset fog.
 void MapManager::reset(Difficulty difficulty, int campaignStage)
 {
     currentDifficulty = difficulty;
@@ -947,8 +970,7 @@ void MapManager::reset(Difficulty difficulty, int campaignStage)
         if (nearTorchMineCount > 46)
             nearTorchMineCount = 46;
 
-        // In the 5-stage campaign, stage 5 is the final boss stage.
-        // Force peak mine pressure around torches to keep this stage brutal.
+        // HARD stage 5 (stage cuối): ép độ bao phủ mìn quanh torch lên mức tối đa.
         if (currentCampaignStage >= 4)
             nearTorchMineCount = 46;
     }
@@ -970,6 +992,9 @@ void MapManager::reset(Difficulty difficulty, int campaignStage)
     revealInitialArea();
 }
 
+// Xây mạng lưới torch trải đều theo các "band" tiến độ từ start đến goal.
+// Torch đủ xa nhau (minTorchDistance), liên kết theo cây safe path.
+// Sau đó gọi ensureStarterTorch() để đảm bảo có torch gần start.
 void MapManager::buildFixedTorchNetwork(Difficulty difficulty, int campaignStage)
 {
     int torchTarget = 16;
@@ -984,7 +1009,7 @@ void MapManager::buildFixedTorchNetwork(Difficulty difficulty, int campaignStage
     if (difficulty == Difficulty::HARD)
         stagePenalty += campaignStage / 3;
 
-    // 5-stage campaign tweak: make the final hard stage much tighter.
+// Điều chỉnh campaign 5 stage: làm stage cuối khó hơn bằng cách giảm số torch.
     if (difficulty == Difficulty::HARD && campaignStage >= 4)
         stagePenalty += 2;
 
@@ -1059,7 +1084,7 @@ void MapManager::buildFixedTorchNetwork(Difficulty difficulty, int campaignStage
     int basePerBand = torchTarget / bandCount;
     int extraBands = torchTarget % bandCount;
 
-    // Pass 1: place torches per progress band so links feel like guided routes to goal.
+    // Pass 1: đặt torch theo từng band tiến độ để tạo cảm giác dẫn đường về goal.
     for (int band = 0; band < bandCount && placedTorches < torchTarget; band++)
     {
         int quota = basePerBand + ((band < extraBands) ? 1 : 0);
@@ -1120,7 +1145,7 @@ void MapManager::buildFixedTorchNetwork(Difficulty difficulty, int campaignStage
         }
     }
 
-    // Pass 2: if still missing, fill globally with the same spacing rule.
+    // Pass 2: bù nếu vẫn chưa đủ số torch, fill toàn cục với quy tắc giẫn cách tương tự.
     for (int band = 0; band < bandCount && placedTorches < torchTarget; band++)
     {
         for (size_t i = 0; i < bandCandidates[static_cast<size_t>(band)].size() && placedTorches < torchTarget; i++)
@@ -1152,7 +1177,7 @@ void MapManager::buildFixedTorchNetwork(Difficulty difficulty, int campaignStage
         int minLinkDistance = (difficulty == Difficulty::EASY) ? 2 : 3;
         int maxLinkDistance = (difficulty == Difficulty::EASY) ? 7 : 8;
 
-        // Connect each torch to one meaningful predecessor to avoid noisy crisscross links.
+        // Nối mỗi torch với 1 torch "cha" gần họn về goal để tránh liên kết chéo lộn xộn.
         for (size_t i = 0; i < torchNodes.size(); i++)
         {
             int rowA = torchNodes[i].first;
@@ -1216,9 +1241,10 @@ void MapManager::buildFixedTorchNetwork(Difficulty difficulty, int campaignStage
     ensureStarterTorch();
 }
 
+// Load texture nền và icon các thực thể (mìn, torch), sau đó reset map.
 bool MapManager::load(SDL_Renderer *renderer, const char *backgroundPath, Difficulty difficulty)
 {
-    // Destroy previous textures if any
+    // Hủy texture cũ nếu có từ lần load trước.
     if (backgroundTexture)
     {
         SDL_DestroyTexture(backgroundTexture);
@@ -1241,16 +1267,18 @@ bool MapManager::load(SDL_Renderer *renderer, const char *backgroundPath, Diffic
     }
 
     backgroundTexture = IMG_LoadTexture(renderer, backgroundPath);
-    // load entity icons (ignore failure, drawing will fallback to color)
+    // Load icon đầu đầu; nếu thiếu file, render sẽ fallback về vẽ màu.
     mineTexture = IMG_LoadTexture(renderer, "assets/images/entities/bom.png");
     torchTexture = IMG_LoadTexture(renderer, "assets/images/entities/fire.png");
-    // there is no dedicated goal image; reuse fire for now or leave null
+    // Chưa có nh goal riêng; tạm thời để null (render sẽ vẽ màu tím).
     goalTexture = nullptr;
 
     reset(difficulty);
     return backgroundTexture != nullptr;
 }
 
+// Mở fog ô (row,col): đánh dấu cả visible[] lẫn shadowVisible[].
+// Nếu clearMinesOnReveal đang bật (trong death sequence), xóa mìn khi mở.
 void MapManager::revealCell(int row, int col)
 {
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS)
@@ -1263,6 +1291,7 @@ void MapManager::revealCell(int row, int col)
     shadowVisible[row][col] = true;
 }
 
+// Mở shadowVisible[] đơn thuần (vùng bóng tối nhờ nhờ), không mở visible[].
 void MapManager::revealShadowCell(int row, int col)
 {
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS)
@@ -1271,6 +1300,7 @@ void MapManager::revealShadowCell(int row, int col)
     shadowVisible[row][col] = true;
 }
 
+// Hàm tiện ích trả về dấu của giá trị (-1, 0, 1).
 int MapManager::sign(int value) const
 {
     if (value > 0) return 1;
@@ -1278,6 +1308,8 @@ int MapManager::sign(int value) const
     return 0;
 }
 
+// Kiểm tra o (row,col) có nằm về phía goal so với điểm cơ sở (baseRow,baseCol) không.
+// Dùng để ưu tiên reveal hướng tiến thù lên goal.
 bool MapManager::isForwardCell(int baseRow, int baseCol, int row, int col) const
 {
     int goalVecR = goalRow - baseRow;
@@ -1288,6 +1320,8 @@ bool MapManager::isForwardCell(int baseRow, int baseCol, int row, int col) const
     return dot > 0;
 }
 
+// Kiểm tra có ô hàng xóm nào vẫn bị ẩn (fog) quanh (row,col) không.
+// Dùng để chọn vị trí spawn torch tại bỉa fog.
 bool MapManager::hasHiddenNeighbor(int row, int col) const
 {
     for (int dr = -1; dr <= 1; dr++)
@@ -1310,11 +1344,13 @@ bool MapManager::hasHiddenNeighbor(int row, int col) const
     return false;
 }
 
+// Kiểm tra có mìn nào liền kề (8 hướng) với (row,col) không.
 bool MapManager::hasAdjacentMine(int row, int col) const
 {
     return countAdjacentMines(row, col) > 0;
 }
 
+// Đếm số mìn liền kề (8 hướng) xung quanh ô (row,col).
 int MapManager::countAdjacentMines(int row, int col) const
 {
     int count = 0;
@@ -1338,6 +1374,7 @@ int MapManager::countAdjacentMines(int row, int col) const
     return count;
 }
 
+// Kiểm tra có mìn nào trong bán kính Manhattan `radius` xung quanh (row,col) không.
 bool MapManager::hasMineWithinRadius(int row, int col, int radius) const
 {
     if (radius < 1)
@@ -1363,6 +1400,8 @@ bool MapManager::hasMineWithinRadius(int row, int col, int radius) const
     return false;
 }
 
+// Kiểm tra đặt mìn tại (row,col) có tạo ra cụm 2x2 toàn mìn không.
+// Dùng để ngăn map có "mường mìn" dày khó đi qua.
 bool MapManager::createsDenseMineCluster(int row, int col) const
 {
     for (int baseRow = row - 1; baseRow <= row; baseRow++)
@@ -1393,6 +1432,8 @@ bool MapManager::createsDenseMineCluster(int row, int col) const
     return false;
 }
 
+// Kiểm tra có torch nào trong khoảng cách < minDistance so với (row,col) không.
+// Dùng để giữ torch đủ xa nhau khi sinh.
 bool MapManager::hasNearbyTorch(int row, int col, int minDistance) const
 {
     if (minDistance <= 0)
@@ -1414,6 +1455,11 @@ bool MapManager::hasNearbyTorch(int row, int col, int minDistance) const
     return false;
 }
 
+// Vẽ toàn bộ map mỗi frame:
+// 1. Nền (background texture)
+// 2. Từng tile: Floor/Wall/Mine/Torch/Goal với hiệu ứng glow, icon, safePath
+// 3. Fog of war 3 lớp: ẩn hoàn toàn / bóng mờ / đã biết
+// 4. Gợi ý torch nhấp nháy nếu hint đang hoạt động
 void MapManager::render(SDL_Renderer* renderer)
 {
     if (backgroundTexture)
@@ -1474,7 +1520,7 @@ void MapManager::render(SDL_Renderer* renderer)
                 SDL_SetRenderDrawColor(renderer, 90, 90, 90, 255);
                 SDL_RenderFillRect(renderer, &tileRect);
 
-                // Show discovered safe route cells so torch rewards are immediately visible.
+                // Hiển thị đường an toàn (xanh lá nhạt) khi torch được giải xong.
                 if (visible[r][c] && safePath[r][c] && map[r][c] == FLOOR)
                 {
                     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -1554,7 +1600,7 @@ void MapManager::render(SDL_Renderer* renderer)
                                 }
                             }
 
-                            // tint icon based on state
+                            // Tô màu icon torch theo trạng thái: vàng (thành công) / đỏ (thất bại) / mặc định.
                             if (torchState[r][c] == TORCH_SUCCESS)
                                 SDL_SetTextureColorMod(torchTexture, 255, 225, 120);
                             else if (torchState[r][c] == TORCH_FAILED)
@@ -1564,7 +1610,7 @@ void MapManager::render(SDL_Renderer* renderer)
 
                             SDL_RenderCopy(renderer, torchTexture, &srcRect, &iconRect);
 
-                            // reset modulation
+                            // Đặt lại color mod về mặc định sau khi render.
                             SDL_SetTextureColorMod(torchTexture, 255, 255, 255);
                         }
                         else
@@ -1690,6 +1736,7 @@ void MapManager::render(SDL_Renderer* renderer)
     }
 }
 
+// Trả về loại tile tại (row,col). Trả WALL nếu toạ độ ngoài giới hạn.
 int MapManager::getTile(int row, int col) const
 {
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS)
@@ -1698,6 +1745,7 @@ int MapManager::getTile(int row, int col) const
     return map[row][col];
 }
 
+// Các getter kiểm tra loại tile tại vị trí (row,col).
 bool MapManager::isWall(int row, int col) const
 {
     if (getTile(row, col) == WALL)
@@ -1720,6 +1768,7 @@ bool MapManager::isGoal(int row, int col) const
     return getTile(row, col) == GOAL;
 }
 
+// Kiểm tra torch tại (row,col) có thể bắt đầu câu hỏi không (chưa dùng).
 bool MapManager::canAttemptTorch(int row, int col) const
 {
     if (!isTorch(row, col))
@@ -1727,6 +1776,7 @@ bool MapManager::canAttemptTorch(int row, int col) const
     return torchState[row][col] == TORCH_NOT_USED;
 }
 
+// Cập nhật torchState theo kết quả trả lời (đúng/sai) và mở fog ô torch.
 void MapManager::resolveTorch(int row, int col, bool correctAnswer)
 {
     if (!isTorch(row, col))
@@ -1737,6 +1787,8 @@ void MapManager::resolveTorch(int row, int col, bool correctAnswer)
     revealCell(row, col);
 }
 
+// Tìm torch gần start nhất và mở fog xung quanh nó.
+// Gọi 1 lần duy nhất khi bắt đầu stage để player thấy mục tiêu đầu tiên.
 bool MapManager::activateStarterTorch()
 {
     int targetRow = -1;
@@ -1789,6 +1841,8 @@ bool MapManager::activateStarterTorch()
     return true;
 }
 
+// Mở fog theo hướng goal từ vị trí torch vừa giải xong.
+// Số bước: 2 (EASY/MEDIUM), 1 (HARD).
 void MapManager::revealAroundTorch(int row, int col)
 {
     revealCell(row, col);
@@ -1842,6 +1896,7 @@ void MapManager::revealAroundTorch(int row, int col)
     }
 }
 
+// Mở fog hình vuông bán kính `radius` xung quanh (row,col).
 void MapManager::revealRadius(int row, int col, int radius, bool includeCenter)
 {
     for (int dr = -radius; dr <= radius; dr++)
@@ -1856,11 +1911,13 @@ void MapManager::revealRadius(int row, int col, int radius, bool includeCenter)
     }
 }
 
+// Mở fog chính xác 1 ô (row,col).
 void MapManager::revealAt(int row, int col)
 {
     revealCell(row, col);
 }
 
+// Mở fog theo 1 bước theo hướng (dRow,dCol) từ (row,col).
 void MapManager::revealForwardStep(int row, int col, int dRow, int dCol)
 {
     int targetRow = row + dRow;
@@ -1875,6 +1932,8 @@ void MapManager::revealForwardStep(int row, int col, int dRow, int dCol)
     revealCell(targetRow, targetCol);
 }
 
+// Mở shadowVisible lần lượt qua các bước random walk từ (row,col)
+// để tạo vùng bóng mờ (nửa tối) 1 cách tự nhiên.
 void MapManager::revealShadowAround(int row, int col, int radius)
 {
     revealShadowCell(row, col);
@@ -1908,6 +1967,9 @@ void MapManager::revealShadowAround(int row, int col, int radius)
     }
 }
 
+// Spawn torch trong vùng đã mở fog gần (centerRow,centerCol).
+// Ưu tiên ô ở bìa fog (có hàng xóm ẩn) và gần goal.
+// Nếu không tìm được, thử mở thêm fog rồi thử lại.
 bool MapManager::spawnTorchInOpenedArea(int centerRow, int centerCol, int maxDistance)
 {
     const int minTorchDistance = 4;
@@ -2030,6 +2092,8 @@ bool MapManager::spawnTorchInOpenedArea(int centerRow, int centerCol, int maxDis
     return false;
 }
 
+// Tìm torch chưa giải tiếp theo hướng goal tử vị trí (fromRow,fromCol).
+// Nếu không có torch nào "tiến về phía trước", fallback về torch gần nhất bất kỳ hướng.
 bool MapManager::findNextUnresolvedTorch(int fromRow, int fromCol, int& outRow, int& outCol) const
 {
     int bestDistance = std::numeric_limits<int>::max();
@@ -2087,6 +2151,7 @@ bool MapManager::findNextUnresolvedTorch(int fromRow, int fromCol, int& outRow, 
     return found;
 }
 
+// Tìm torch chưa giải gần nhất (bất kỳ hướng) tử (fromRow,fromCol).
 bool MapManager::findNearestUnresolvedTorch(int fromRow, int fromCol, int& outRow, int& outCol) const
 {
     int bestDistance = std::numeric_limits<int>::max();
@@ -2117,6 +2182,8 @@ bool MapManager::findNearestUnresolvedTorch(int fromRow, int fromCol, int& outRo
     return found;
 }
 
+// Bật gợi ý (nhấp nháy vàng) tại torch gần nhất khi player trả lời sai.
+// Thời gian gợi ý: EASY 8s, MEDIUM 5s, HARD 3s.
 void MapManager::hintNearestTorch(int fromRow, int fromCol)
 {
     int targetRow = -1;
@@ -2141,6 +2208,7 @@ void MapManager::hintNearestTorch(int fromRow, int fromCol)
     hintUntilTick = SDL_GetTicks() + hintDurationMs;
 }
 
+// Tắt gợi ý torch (reset vị trí và thời gian).
 void MapManager::clearTorchHint()
 {
     hintTorchRow = -1;
@@ -2148,6 +2216,9 @@ void MapManager::clearTorchHint()
     hintUntilTick = 0;
 }
 
+// Mở đường dẫn đến torch tiếp theo sau khi giải xong 1 torch.
+// EASY mở 2 nhánh, MEDIUM/HARD mở 1 nhánh.
+// Nếu đây là torch cuối, lọ luôn đường về goal.
 bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorchCount)
 {
     struct RevealMineGuard
@@ -2175,7 +2246,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
         }
     }
 
-    // Easy keeps two linked torch routes, but each route reveals less area.
+    // EASY giữ 2 nhánh torch liên kết, nhưng mỗi nhánh reveal ít hơn.
     int desiredBranches = 1;
     if (currentDifficulty == Difficulty::EASY)
         desiredBranches = 2;
@@ -2231,7 +2302,7 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
 
     if (candidates.empty())
     {
-        // Only the final torch is allowed to open a complete route to the goal.
+        // Torch cuối cùng: mở đường thẳng vào goal.
         carveSafePath(fromRow, fromCol, goalRow, goalCol);
         revealCell(goalRow, goalCol);
         return true;
@@ -2418,6 +2489,8 @@ bool MapManager::revealPathToNextTorch(int fromRow, int fromCol, int solvedTorch
     return openedAny;
 }
 
+// Mở fog tiến dần về hướng goal từ (fromRow,fromCol) qua `steps` bước.
+// Có xác suất đi lệch sang hướng ngang (35%) để reveal tự nhiên hơn.
 void MapManager::revealTowardGoalPath(int fromRow, int fromCol, int steps)
 {
     int r = fromRow;
@@ -2485,6 +2558,7 @@ void MapManager::revealTowardGoalPath(int fromRow, int fromCol, int steps)
     }
 }
 
+// Mở fog ngẫu nhiên theo các "random walk" từ tâm để làm vùng nhìn trông tự nhiên.
 void MapManager::revealRandomCluster(int centerRow, int centerCol, int seeds, int maxStep)
 {
     for (int i = 0; i < seeds; i++)
@@ -2515,6 +2589,8 @@ void MapManager::revealRandomCluster(int centerRow, int centerCol, int seeds, in
     }
 }
 
+// Spawn thêm mìn vào vùng chưa mở fog (ngoài bán kính 2 quanh player)
+// khi wave mới bắt đầu. torchToAdd hiện chưa dùng (dự phòng mở rộng).
 void MapManager::spawnNextWave(int playerRow, int playerCol, int mineToAdd, int torchToAdd)
 {
     for (int i = 0; i < mineToAdd; i++)
@@ -2527,6 +2603,7 @@ void MapManager::spawnNextWave(int playerRow, int playerCol, int mineToAdd, int 
     (void)torchToAdd;
 }
 
+// Kiểm tra có tồn tại torch chưa giải nào trên bản đồ không.
 bool MapManager::hasAnyUnresolvedTorch() const
 {
     for (int r = 0; r < ROWS; r++)
@@ -2541,6 +2618,7 @@ bool MapManager::hasAnyUnresolvedTorch() const
     return false;
 }
 
+// Đếm tổng số torch trên bản đồ (kể cả đã giải).
 int MapManager::getTotalTorchCount() const
 {
     int total = 0;
@@ -2555,6 +2633,7 @@ int MapManager::getTotalTorchCount() const
     return total;
 }
 
+// Đếm số torch đã giải thành công (TORCH_SUCCESS).
 int MapManager::getSolvedTorchCount() const
 {
     int solved = 0;
@@ -2569,6 +2648,7 @@ int MapManager::getSolvedTorchCount() const
     return solved;
 }
 
+// Kiểm tra ô (row,col) đã đi qua vùng shadowVisible (bất kỳ mức độ soi nhìn) chưa.
 bool MapManager::isKnown(int row, int col) const
 {
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS)
@@ -2576,6 +2656,7 @@ bool MapManager::isKnown(int row, int col) const
     return shadowVisible[row][col];
 }
 
+// Kiểm tra ô (row,col) đang hiển thị chi tiết đầy đủ (visible[]) .
 bool MapManager::isDetailVisible(int row, int col) const
 {
     if (row < 0 || row >= ROWS || col < 0 || col >= COLS)
@@ -2583,6 +2664,8 @@ bool MapManager::isDetailVisible(int row, int col) const
     return visible[row][col];
 }
 
+// Bật/tắt overlay chết (hiện mìn/torch) cho chế độ tester debug.
+// Khi không phải build tester, luôn tắt.
 void MapManager::setTesterOverlay(bool revealMines, bool revealTorches)
 {
     if (!kTesterEnabledBuild)
@@ -2596,13 +2679,14 @@ void MapManager::setTesterOverlay(bool revealMines, bool revealTorches)
     testerRevealTorches = revealTorches;
 }
 
-// currently unused – textures are managed directly in load()/clean()
+// Hiện chưa sử dụng – texture được quản lý trực tiếp trong load()/clean().
 void MapManager::cleanTextures(SDL_Renderer* renderer)
 {
     (void)renderer;
-    // preserved for future extension
+    // dự phòng cho việc mở rộng sau này
 }
 
+// Giải phóng tất cả texture (background, mine, torch, goal).
 void MapManager::clean()
 {
     if (backgroundTexture)

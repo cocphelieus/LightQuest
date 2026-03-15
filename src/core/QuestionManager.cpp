@@ -20,10 +20,14 @@
 
 namespace
 {
+    // Header nhận dạng định dạng file câu hỏi (khóa/plain).
     const char* kQuestionLockHeader = "LQLOCK1";
     const char* kQuestionPlainHeader = "LQPLAIN1";
+    // Khóa XOR dùng để giải mã file câu hỏi đã mã hóa (format LQLOCK1).
     const char* kQuestionLockKey = "LQ_2026_PlayerLock";
 
+    // Câu hỏi dự phòng khi không load được file câu hỏi.
+    // Đảm bảo game vẫn chạy được dù thiếu data.
     Question makeFallbackQuestion()
     {
         Question q;
@@ -41,6 +45,8 @@ namespace
         return value.size() >= prefix.size() && value.compare(0, prefix.size(), prefix) == 0;
     }
 
+    // Xóa BOM UTF-8 (3 byte đầu tiên EF BB BF) nếu có.
+    // Cần thiết vì file có thể được lưu bằng Notepad với BOM.
     void stripUtf8Bom(std::string& text)
     {
         if (text.size() >= 3 &&
@@ -52,6 +58,8 @@ namespace
         }
     }
 
+    // Các hàm hỗ trợ decoding hex và XOR transform
+    // để giải mã nội dung câu hỏi đã được mã hóa.
     int hexToNibble(char c)
     {
         if (c >= '0' && c <= '9') return c - '0';
@@ -60,6 +68,7 @@ namespace
         return -1;
     }
 
+    // Parse chuỗi hex thành mảng byte thực sự.
     bool decodeHex(const std::string& hex, std::string& outBytes)
     {
         if (hex.size() % 2 != 0)
@@ -81,6 +90,7 @@ namespace
         return true;
     }
 
+    // XOR từng byte của data với key (lặp vòng). Dùng để mã hóa và giải mã.
     std::string xorTransform(const std::string& data, const std::string& key)
     {
         if (key.empty())
@@ -93,6 +103,8 @@ namespace
         return output;
     }
 
+    // Parse văn bản thô thành danh sách câu hỏi theo định dạng:
+    // dòng 1: câu hỏi | 4 dòng tiếp: A B C D | dòng cuối: đáp án
     bool parseQuestionsFromText(const std::string& text, std::vector<Question>& questions)
     {
         std::istringstream in(text);
@@ -137,6 +149,8 @@ namespace
         return !questions.empty();
     }
 
+    // Kiểm tra header file và giải mã nếu là format LQLOCK1.
+    // Nếu là plain text (LQPLAIN1) hoặc không có header, giữ nguyên.
     bool tryUnlockQuestionText(std::string& text)
     {
         stripUtf8Bom(text);
@@ -260,6 +274,8 @@ namespace
 #endif
 }
 
+// Đọc file data/question.txt, giải mã nếu cần, parse thành danh sách câu hỏi.
+// Nếu thất bại, đặt 1 câu hỏi dự phòng để game không bị bloc.
 bool QuestionManager::loadFromFile(const char* path)
 {
     questions.clear();
@@ -288,12 +304,15 @@ bool QuestionManager::loadFromFile(const char* path)
     return true;
 }
 
+// Chọn ngẫu nhiên chỉ số câu hỏi từ danh sách.
 int QuestionManager::randomIndex() const
 {
     if (questions.empty()) return -1;
     return std::rand() % static_cast<int>(questions.size());
 }
 
+// Hiển thị overlay câu hỏi trắc nghiệm, chờ player chọn đáp án.
+// Trả về true nếu player chọn đúng (dùng để quyết định torch có bật không).
 bool QuestionManager::askQuestion(int index, SDL_Renderer* renderer, bool showCorrectAnswer)
 {
     if (index < 0 || index >= static_cast<int>(questions.size())) return false;

@@ -14,8 +14,11 @@
 #endif
 
 #if LIGHTQUEST_HAS_SDL_MIXER
+// Struct nội bộ chứa toàn bộ dữ liệu SDL_mixer (Pimpl idiom)
+// để tránh rò rỉ header SDL_mixer ra ngoài.
 struct SoundManager::Impl
 {
+    // Track nhạc đang phát hiện tại.
     enum class MusicTrack
     {
         NONE,
@@ -38,12 +41,13 @@ struct SoundManager::Impl
 
     static constexpr int kClickChannelStart = 0;
     static constexpr int kClickChannelCount = 4;
-    // Dedicated channel for loss cue so Game can check playback state reliably.
+    // Kênh riêng cho tiếng thua để Game có thể kiểm tra trạng thái phát một cách chính xác.
     static constexpr int kLossChannel = kClickChannelStart + kClickChannelCount;
     int clickChannelCursor = 0;
 
     MusicTrack currentTrack = MusicTrack::NONE;
 
+    // Giải phóng tất cả music và SFX đã load, đặt lại trạng thái.
     void freeAssets()
     {
         if (menuBgm)
@@ -86,6 +90,7 @@ struct SoundManager::Impl
         currentTrack = MusicTrack::NONE;
     }
 
+    // Phát nhạc nền với hiệu ứng fade-in 240ms.
     void playMusic(Mix_Music* music, int loops, MusicTrack track)
     {
         if (!initialized || !music)
@@ -97,6 +102,8 @@ struct SoundManager::Impl
         currentTrack = track;
     }
 
+    // Phát SFX trên kênh chỉ định.
+    // restartIfPlaying = true: ngắt âm thanh cũ rồi phát lại ngay (dùng cho click).
     void playSfx(Mix_Chunk* chunk, int channel = -1, bool restartIfPlaying = false)
     {
         if (!initialized || !chunk)
@@ -116,6 +123,8 @@ SoundManager& SoundManager::instance()
     return manager;
 }
 
+// Khởi tạo SDL_mixer: thử các cấu hình sample rate/buffer size khác nhau
+// từ thấp nhất đến cao nhất để tìm cấu hình ổn định nhất với driver âm thanh.
 bool SoundManager::init()
 {
 #if !LIGHTQUEST_HAS_SDL_MIXER
@@ -137,8 +146,8 @@ bool SoundManager::init()
     int initFlags = MIX_INIT_MP3 | MIX_INIT_OGG;
     Mix_Init(initFlags);
 
-    // Try lower-latency configs first, then fall back to safer defaults.
-    // This keeps UI/SFX snappy across different driver/device combinations.
+    // Thử lần lượt các cấu hình latency thấp đến an toàn hơn.
+    // Đảm bảo click/SFX reagep trên nhiều loại driver khác nhau.
     const std::array<int, 4> sampleRates = {48000, 44100, 44100, 22050};
     const std::array<int, 4> chunkSizes  = {256,   256,   512,   1024};
     bool opened = false;
@@ -163,6 +172,8 @@ bool SoundManager::init()
 #endif
 }
 
+// Load tất cả file nhạc/SFX từ thư mục assets/sound.
+// Log cảnh báo nếu file nào bị thiếu nhưng không dừng lại.
 bool SoundManager::loadAssets()
 {
 #if !LIGHTQUEST_HAS_SDL_MIXER
@@ -206,6 +217,7 @@ bool SoundManager::loadAssets()
 #endif
 }
 
+// Dọn sạch toàn bộ tài nguyên âm thanh và tắt SDL_mixer.
 void SoundManager::shutdown()
 {
 #if LIGHTQUEST_HAS_SDL_MIXER
@@ -234,6 +246,7 @@ void SoundManager::shutdown()
 #endif
 }
 
+// Phát nhạc nền menu (phát lặp vô tận). Bỏ qua nếu đang sẵn phát rồi.
 void SoundManager::playMenuBgm()
 {
 #if LIGHTQUEST_HAS_SDL_MIXER
@@ -247,6 +260,7 @@ void SoundManager::playMenuBgm()
 #endif
 }
 
+// Phát nhạc chuyển cảnh giữa các stage (phát 1 lần).
 void SoundManager::playTransition()
 {
 #if LIGHTQUEST_HAS_SDL_MIXER
@@ -257,19 +271,22 @@ void SoundManager::playTransition()
 #endif
 }
 
+// Phát tiếng click UI. Xoay vòng qua 4 kênh riêng
+// để các click liên tiếp không cắt nhau.
 void SoundManager::playClick()
 {
 #if LIGHTQUEST_HAS_SDL_MIXER
     if (!impl || !impl->initialized)
         return;
 
-    // Rotate through several channels so rapid clicks do not cut each other off.
+    // Xoay vòng qua các kênh click để click nhanh liên tiếp không cắt nhau.
     const int channel = Impl::kClickChannelStart + impl->clickChannelCursor;
     impl->clickChannelCursor = (impl->clickChannelCursor + 1) % Impl::kClickChannelCount;
     impl->playSfx(impl->clickSfx, channel, true);
 #endif
 }
 
+// Phát tiếng nổ khi player bước vào mìn.
 void SoundManager::playBomb()
 {
 #if LIGHTQUEST_HAS_SDL_MIXER
@@ -280,6 +297,7 @@ void SoundManager::playBomb()
 #endif
 }
 
+// Phát tiếng thua game trên kênh cố định để Game có thể kiểm tra isLossPlaying().
 void SoundManager::playLoss()
 {
 #if LIGHTQUEST_HAS_SDL_MIXER

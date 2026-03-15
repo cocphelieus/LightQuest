@@ -17,6 +17,8 @@
 
 namespace
 {
+    // Kiểm tra xem người dùng có đang giữ phím di chuyển không.
+    // Dùng để tránh player cả động vô tình ngay khi stage vừa load xong.
     bool isMovementKeyHeld(const Uint8* keystate)
     {
         if (!keystate)
@@ -28,6 +30,7 @@ namespace
                keystate[SDL_SCANCODE_D] || keystate[SDL_SCANCODE_RIGHT];
     }
 
+    // Trả về tên độ khó in hoa để hiển thị trên HUD.
     const char* difficultyLabel(Difficulty difficulty)
     {
         if (difficulty == Difficulty::EASY)
@@ -37,6 +40,7 @@ namespace
         return "HARD";
     }
 
+    // Trả về màu tương ứng với mỗi mức độ khó (xanh lá/vàng/đỏ).
     SDL_Color difficultyColor(Difficulty difficulty)
     {
         if (difficulty == Difficulty::EASY)
@@ -69,6 +73,8 @@ namespace
 #endif
 }
 
+// Đồng bộ tester overlay với map: ẩn/hiện mìn và torch theo cờ tester.
+// Nếu không phải build tester, luôn tắt overlay.
 void PlayScene::syncTesterOverlay()
 {
     if (!kTesterEnabledBuild)
@@ -80,6 +86,7 @@ void PlayScene::syncTesterOverlay()
     map.setTesterOverlay(testerShowMines, testerShowTorches);
 }
 
+// Mở panel debug (chỉ build tester): toggle hiện mìn/torch/đáp án, bỏ qua stage.
 void PlayScene::openTesterPanel()
 {
     if (!kTesterEnabledBuild)
@@ -148,6 +155,8 @@ PlayScene::PlayScene()
 {
 }
 
+// Reset toàn bộ trạng thái cho một stage mới:
+// sinh lại map, reset player về điểm xuất phát, làm sạch các cờ.
 void PlayScene::startLevel(Difficulty newDifficulty)
 {
     difficulty = newDifficulty;
@@ -167,6 +176,8 @@ void PlayScene::startLevel(Difficulty newDifficulty)
     levelIntroUntilTick = levelStartTick + 2200;
 }
 
+// Load toàn bộ tài nguyên cho PlayScene: map, texture player, font HUD,
+// pool câu hỏi, rồi khởi động stage đầu tiên.
 void PlayScene::load(SDL_Renderer* renderer)
 {
     rendererRef = renderer;
@@ -194,7 +205,7 @@ void PlayScene::load(SDL_Renderer* renderer)
     }
 #endif
 
-    // prepare player graphics
+    // chuẩn bị texture cho player
     player.clean();
     player.loadTexture(renderer);
 
@@ -213,6 +224,7 @@ void PlayScene::load(SDL_Renderer* renderer)
 
 }
 
+// Xử lý sự kiện rời rạc: ESC về menu, phím T mở panel tester.
 void PlayScene::handleEvent(SDL_Event &event)
 {
     if (outcome != PlayOutcome::NONE || returnToMenu)
@@ -245,6 +257,11 @@ void PlayScene::handleEvent(SDL_Event &event)
     }
 }
 
+// Gọi khi player bước sang tile mới. Xử lý:
+// - Bước vào mìn → FAILED
+// - Đến đích → CLEARED
+// - Bước vào torch → hiển thị câu hỏi, xử lý đúng/sai
+// - Bước vào ô tối chưa biết → mở fog
 void PlayScene::onPlayerMoved(int oldRow, int oldCol)
 {
     int row = player.getRow();
@@ -304,6 +321,7 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
             return;
         }
 
+// Khửng hoá đường dẫn an toàn đến torch tiếp theo và cập nhật checkpoint.
         map.resolveTorch(row, col, correct);
 
         if (correct)
@@ -316,6 +334,7 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
         }
         else
         {
+            // Trả player về vị trí cũ và gợi ý torch gần nhất khi trả lời sai.
             map.hintNearestTorch(row, col);
             player.setPosition(oldRow, oldCol, map.getTileSize());
         }
@@ -328,12 +347,14 @@ void PlayScene::onPlayerMoved(int oldRow, int oldCol)
     }
 }
 
+// Cập nhật vật lý player mỗi frame theo kiểu pixel movement.
+// Block input nếu người dùng đang giữ phím ngay khi stage mới load.
 void PlayScene::update(float deltaTime)
 {
     if (outcome != PlayOutcome::NONE || returnToMenu)
         return;
 
-    // move player using pixel-based motion
+    // Di chuyển player theo pixel, sau đó kiểm tra có đổi tile không.
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
 
     if (blockMovementUntilRelease)
@@ -355,6 +376,7 @@ void PlayScene::update(float deltaTime)
     }
 }
 
+// Vẽ map, player, và overlay HUD theo thứ tự: map (nền) → player → overlay (trên cùng).
 void PlayScene::render(SDL_Renderer *renderer)
 {
     int offsetX = map.getRenderOffsetX();
@@ -365,6 +387,8 @@ void PlayScene::render(SDL_Renderer *renderer)
     renderOverlay(renderer);
 }
 
+// Hiệu ứng chết: lộ toàn bộ mìn trên bản đồ, vẽ hiệu ứng nổ nơi player đứng,
+// flash đỏ dần mờ trong 1.4 giây trước khi chuyển sang Game Over.
 bool PlayScene::playDeathSequence(SDL_Renderer* renderer)
 {
     if (!renderer)
@@ -406,7 +430,7 @@ bool PlayScene::playDeathSequence(SDL_Renderer* renderer)
         map.render(renderer);
         player.render(renderer, map.getRenderOffsetX(), map.getRenderOffsetY());
 
-        // Flash the screen to emphasize death impact.
+        // Flash đỏ để nhấn mạnh cảm giác chết, fade dần theo thời gian.
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
         Uint8 flashAlpha = static_cast<Uint8>(110.0f * (1.0f - t));
         SDL_SetRenderDrawColor(renderer, 255, 80, 40, flashAlpha);
@@ -455,6 +479,7 @@ bool PlayScene::playDeathSequence(SDL_Renderer* renderer)
     return shouldQuit;
 }
 
+// Giải phóng tất cả tài nguyên của scene (map, player, font).
 void PlayScene::clean()
 {
     map.clean();
@@ -474,6 +499,9 @@ void PlayScene::clean()
     rendererRef = nullptr;
 }
 
+// Vẽ panel overlay góc trên trái:
+// dòng 1: số stage + độ khó, dòng 2: thời gian campaign.
+// Hiển thị thêm banner intro stage trong 2.2s đầu khi stage mới bắt đầu.
 void PlayScene::renderOverlay(SDL_Renderer* renderer)
 {
     if (!renderer)

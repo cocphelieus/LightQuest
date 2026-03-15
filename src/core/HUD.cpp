@@ -15,6 +15,7 @@
 
 namespace
 {
+    // Giới hạn giá trị trong khoảng [minValue, maxValue].
     int clampInt(int value, int minValue, int maxValue)
     {
         if (value < minValue) return minValue;
@@ -22,6 +23,8 @@ namespace
         return value;
     }
 
+    // Vẽ thanh trạng thái (HP, light, objective...) với nền tối trong suốt,
+    // phần tô màu theo tỉ lệ ratio (0.0 - 1.0), và viền trắng bao ngoài.
     void drawBar(SDL_Renderer* renderer, int x, int y, int w, int h, float ratio, SDL_Color fillColor)
     {
         if (w <= 0 || h <= 0)
@@ -50,6 +53,8 @@ namespace
     }
 }
 
+// Khởi tạo HUD: load font chữ để render text trong game.
+// Nếu SDL_ttf không có sẵn hoặc font thiếu, HUD vẫn chạy nhưng không hiện text.
 bool HUD::init(SDL_Renderer* renderer)
 {
     (void)renderer;
@@ -81,6 +86,9 @@ bool HUD::init(SDL_Renderer* renderer)
 #endif
 }
 
+// Vẽ toàn bộ panel HUD góc trên trái mỗi frame:
+// - 5 thanh: HP (đỏ), Light (vàng), Objective/Torch (xanh lá), Combo (hồng), Wave (xanh dương)
+// - 1 dòng text tổng hợp tất cả chỉ số bên dưới panel
 void HUD::render(
     SDL_Renderer* renderer,
     int health,
@@ -99,6 +107,7 @@ void HUD::render(
     if (!renderer)
         return;
 
+    // Panel HUD nằm góc trên trái, kích thước cố định 270x154.
     const int panelX = 16;
     const int panelY = 16;
     const int panelW = 270;
@@ -125,6 +134,7 @@ void HUD::render(
     int comboCap = 6;
     float comboRatio = static_cast<float>(clampInt(combo, 0, comboCap)) / static_cast<float>(comboCap);
 
+    // Vẽ lần lượt: thanh HP, Light, tiến độ đốt đuốc, Combo, Wave.
     drawBar(renderer, panelX + 12, panelY + 16, 246, 18, healthRatio, SDL_Color{220, 70, 70, 255});
     drawBar(renderer, panelX + 12, panelY + 42, 246, 18, lightRatio, SDL_Color{255, 190, 50, 255});
     drawBar(renderer, panelX + 12, panelY + 68, 246, 16, objectiveRatio, SDL_Color{90, 230, 130, 255});
@@ -167,6 +177,7 @@ void HUD::render(
 #endif
 }
 
+// Giải phóng texture text và font khi HUD không còn dùng nữa.
 void HUD::clean()
 {
     if (textTexture) { SDL_DestroyTexture(textTexture); textTexture = nullptr; }

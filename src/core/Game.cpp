@@ -30,6 +30,7 @@ namespace
 
     const char* kRankingFilePath = "data/ranking.txt";
 
+    // Đọc file ranking.txt, parse từng dòng thành cặp (giây | timestamp).
     std::vector<RankingEntry> loadRankings()
     {
         std::vector<RankingEntry> entries;
@@ -70,6 +71,7 @@ namespace
         return entries;
     }
 
+    // Ghi danh sách ranking ra file, mỗi entry 1 dòng “giây|timestamp”.
     void saveRankings(const std::vector<RankingEntry>& entries)
     {
         std::ofstream out(kRankingFilePath, std::ios::trunc);
@@ -80,6 +82,7 @@ namespace
             out << entries[i].seconds << "|" << entries[i].timestamp << "\n";
     }
 
+    // Lấy thời điểm hiện tại dưới dạng chuỗi "YYYY-MM-DD HH:MM:SS".
     std::string currentTimestamp()
     {
         std::time_t now = std::time(nullptr);
@@ -104,6 +107,8 @@ namespace
         return std::string(buffer);
     }
 
+    // Thêm kết quả mới vào ranking, sắp xếp theo thời gian tăng dần,
+    // giữ tối đa 5 entry. Trả về hạng của người chơi (1-based) hoặc -1 nếu không vào top 5.
     int addCampaignClearToRanking(int elapsedSeconds)
     {
         std::vector<RankingEntry> entries = loadRankings();
@@ -176,6 +181,8 @@ namespace
 #endif
 }
 
+// Xác định độ khó theo stage của campaign:
+// Stage 0-1 = EASY, 2-3 = MEDIUM, 4+ = HARD.
 static Difficulty difficultyForCampaignStage(int stage)
 {
     if (stage <= 1)
@@ -185,6 +192,7 @@ static Difficulty difficultyForCampaignStage(int stage)
     return Difficulty::HARD;
 }
 
+// Trả về tên độ khó dưới dạng chuỗi để hiển thị.
 static const char* difficultyName(Difficulty difficulty)
 {
     if (difficulty == Difficulty::EASY)
@@ -194,6 +202,9 @@ static const char* difficultyName(Difficulty difficulty)
     return "Hard";
 }
 
+// Hiển thị popup "Stage Cleared" sau khi vượt mỗi stage.
+// Cho thấy độ khó vừa qua và thông tin stage tiếp theo.
+// Trả về true nếu người dùng đóng cửa sổ trong khi popup hiển thị.
 static bool showStageClearMessage(SDL_Renderer* renderer, int stage)
 {
     if (!renderer)
@@ -336,6 +347,7 @@ static bool showStageClearMessage(SDL_Renderer* renderer, int stage)
 #endif
 }
 
+// Khởi động campaign từ đầu: đặt stage 0 và load PlayScene.
 static void startCampaignFromBeginning(PlayScene& play, SDL_Renderer* renderer)
 {
     play.setCampaignStage(0);
@@ -343,6 +355,8 @@ static void startCampaignFromBeginning(PlayScene& play, SDL_Renderer* renderer)
     play.load(renderer);
 }
 
+// Hiển thị màn hình chiến thắng cuối campaign:
+// tổng thời gian, hạng xếp hạng, hiệu ứng pulse và timer tự đóng.
 static bool showCampaignCompleteMessage(SDL_Renderer* renderer, int stage, int elapsedSeconds, int rankingPlace)
 {
     if (!renderer)
@@ -514,6 +528,8 @@ static bool showCampaignCompleteMessage(SDL_Renderer* renderer, int stage, int e
 #endif
 }
 
+// Hiển thị màn hình Game Over (như nh thế).
+// Hiển thị tối thiểu 1.4s, tự đóng sau 4.5s hoặc khi nhấn bất kỳ phím/click.
 static bool showGameOverScreen(SDL_Renderer* renderer)
 {
     if (!renderer)
@@ -560,7 +576,7 @@ static bool showGameOverScreen(SDL_Renderer* renderer)
         }
         else
         {
-            // Fallback if asset is missing.
+            // Dự phòng khi nh không tìm thấy file game_over.png.
             SDL_ShowSimpleMessageBox(
                 SDL_MESSAGEBOX_ERROR,
                 "Defeat",
@@ -582,14 +598,14 @@ static bool showGameOverScreen(SDL_Renderer* renderer)
 
 void Game::run()
 {
-    // ===== Init Window =====
+    // ===== Khởi tạo cửa sổ =====
     window.init("LightQuest", 1280, 720);
 
     SoundManager& sound = SoundManager::instance();
     sound.init();
     sound.loadAssets();
 
-    // ===== Load Scenes =====
+    // ===== Load các Scene =====
     loading.load(window.getRenderer());
     menu.load(window.getRenderer());
     sound.playMenuBgm();
@@ -598,12 +614,12 @@ void Game::run()
     lastFrameTime = SDL_GetTicks();
 
     int campaignStage = 0;
-    const int finalCampaignStage = 4; // total 5 stages (0..4)
+    const int finalCampaignStage = 4; // tổng 5 stage (0..4)
     Uint32 campaignStartTick = 0;
     int campaignElapsedSeconds = 0;
 
-    // ===== Main Game Loop =====
-    // The loop is split into: event handling, update, render, then FPS cap.
+    // ===== Vòng lặp chính =====
+    // Mỗi frame: xử lý sự kiện → update logic → render → giới hạn FPS.
     while (running)
     {
         Uint32 frameStart = SDL_GetTicks();
@@ -611,7 +627,7 @@ void Game::run()
         lastFrameTime = frameStart;
 
         // =========================
-        // HANDLE EVENTS
+        // XỬ LÝ SỰ KIỆN
         // =========================
         while (SDL_PollEvent(&event))
         {
@@ -662,7 +678,7 @@ void Game::run()
         }
 
         // =========================
-        // UPDATE
+        // CẬP NHẬT LOGIC
         // =========================
         switch (currentState)
         {
@@ -691,7 +707,7 @@ void Game::run()
                 {
                     if (campaignStage < finalCampaignStage)
                     {
-                        // Between stages we play a short transition cue, then show stage-clear popup.
+                        // Phát nhạc chuyển cảnh và hiển thị popup kết thúc stage.
                         sound.playTransition();
                         bool quitFromStagePopup = showStageClearMessage(window.getRenderer(), campaignStage);
                         if (quitFromStagePopup)
@@ -704,7 +720,7 @@ void Game::run()
 
                     if (campaignStage > finalCampaignStage)
                     {
-                        // Campaign completion flow: play win cue, write ranking, show summary popup.
+                        // Hoàn thành toàn bộ campaign: phát nhạc thắng, lưu ranking, hiển thị popup.
                         sound.playWin();
                         int rankingPlace = addCampaignClearToRanking(campaignElapsedSeconds);
                         bool quitFromComplete = showCampaignCompleteMessage(window.getRenderer(), campaignStage - 1, campaignElapsedSeconds, rankingPlace);
@@ -733,9 +749,9 @@ void Game::run()
                 {
                     if (outcome == PlayOutcome::FAILED)
                     {
-                        // Failure flow is split in two layers:
-                        // 1) immediate bomb/death sequence
-                        // 2) loss cue + game-over screen
+                        // Luồng thất bại gồm 2 bước:
+                        // 1) Hiệu ứng nổ tại chỗ player chết
+                        // 2) Tiếng thua + màn hình Game Over
                         sound.playBomb();
                         bool quitFromDeath = play.playDeathSequence(window.getRenderer());
                         if (quitFromDeath)
@@ -752,7 +768,7 @@ void Game::run()
                             break;
                         }
 
-                        // Keep the tail of loss cue audible before menu BGM resumes.
+                        // Chờ đuôi tiếng thua phát xong trước khi nhạc menu bắt đầu lại.
                         Uint32 waitStart = SDL_GetTicks();
                         const Uint32 maxLossTailMs = 1600;
                         while (sound.isLossPlaying() && (SDL_GetTicks() - waitStart) < maxLossTailMs)
@@ -789,7 +805,7 @@ void Game::run()
         }
 
         // =========================
-        // RENDER
+        // VỜ MÀN HÌNH
         // =========================
         window.clear();
 
@@ -811,7 +827,7 @@ void Game::run()
         window.present();
 
         // =========================
-        // FPS LIMIT
+        // GIỚI HẠN FPS (60 FPS)
         // =========================
         Uint32 frameTime = SDL_GetTicks() - frameStart;
         if (frameTime < FRAME_TIME)
@@ -820,7 +836,7 @@ void Game::run()
         }
     }
 
-    // ===== Clean Up =====
+    // ===== Dọn sạch khi thoát =====
     play.clean();
     menu.clean();
     loading.clean();

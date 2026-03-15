@@ -1,6 +1,9 @@
 #include "Window.h"
 #include <SDL2/SDL_image.h>
 
+// Khởi tạo cửa sổ và renderer SDL.
+// Đặt logical size cố định 1280x720 để toàn bộ scene không cần quan tâm
+// đến kích thước cửa sổ thực tế - SDL tự scale.
 bool Window::init(const char* title, int w, int h) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
         return false;
@@ -16,6 +19,7 @@ bool Window::init(const char* title, int w, int h) {
         SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
     );
 
+    // Gán icon cửa sổ từ file ảnh logo (thử nhiều tên file phòng trường hợp thiếu).
     if (window)
     {
         SDL_Surface* iconSurface = IMG_Load("assets/images/entities/logo.png");
@@ -31,6 +35,7 @@ bool Window::init(const char* title, int w, int h) {
         }
     }
 
+    // Tạo renderer tăng tốc phần cứng, bật VSync để tránh xé hình.
     renderer = SDL_CreateRenderer(
         window,
         -1,
@@ -40,6 +45,7 @@ bool Window::init(const char* title, int w, int h) {
     if (!window || !renderer)
         return false;
 
+    // Bật lọc ảnh tuyến tính để texture scale trông mượt hơn.
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
     SDL_RenderSetLogicalSize(renderer, logicalWidth, logicalHeight);
     SDL_RenderSetIntegerScale(renderer, SDL_FALSE);
@@ -47,19 +53,24 @@ bool Window::init(const char* title, int w, int h) {
     return true;
 }
 
+// Xóa frame buffer bằng màu đen trước khi vẽ frame mới.
 void Window::clear() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 }
 
+// Trình bày frame đã vẽ lên màn hình (swap buffer).
 void Window::present() {
     SDL_RenderPresent(renderer);
 }
 
+// Trả về renderer dùng chung cho tất cả các scene.
 SDL_Renderer* Window::getRenderer() {
     return renderer;
 }
 
+// Chuyển đổi giữa fullscreen và windowed.
+// Khi về windowed, khôi phục về đúng kích thước logical và căn giữa màn hình.
 void Window::toggleFullscreen()
 {
     if (!window)
