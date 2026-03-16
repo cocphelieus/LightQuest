@@ -34,6 +34,9 @@ For code walkthrough, module responsibilities, data formats, and maintenance not
 ### Text Rendering
 - **SDL2_ttf** - TrueType font rendering for in-game text
 
+### Audio
+- **SDL2_mixer** - Advanced audio playback (music, sound effects, mixing)
+
 ### Additional Features
 - **Static Linking**: Libraries are statically linked for portability
 - **Unicode Support**: Full support for text rendering via SDL2_ttf
@@ -111,6 +114,7 @@ pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make
 pacman -S mingw-w64-x86_64-SDL2
 pacman -S mingw-w64-x86_64-SDL2_image
 pacman -S mingw-w64-x86_64-SDL2_ttf
+pacman -S mingw-w64-x86_64-SDL2_mixer
 ```
 
 **Alternative for 32-bit:**
@@ -119,6 +123,7 @@ pacman -S mingw-w64-i686-gcc mingw-w64-i686-make
 pacman -S mingw-w64-i686-SDL2
 pacman -S mingw-w64-i686-SDL2_image
 pacman -S mingw-w64-i686-SDL2_ttf
+pacman -S mingw-w64-i686-SDL2_mixer
 ```
 
 ### Step 3: Configure PATH (Optional)
@@ -216,6 +221,23 @@ SDL_Surface* surface = TTF_RenderText_Solid(font, "Score: 1000", color);
 -lSDL2_ttf     # Font rendering
 ```
 
+### SDL2_mixer (Audio)
+
+Used for playing music and sound effects:
+
+```cpp
+#include <SDL2/SDL_mixer.h>
+
+Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
+Mix_Music* music = Mix_LoadMUS("assets/sound/music.ogg");
+Mix_PlayMusic(music, -1);
+```
+
+**Usage in Build:**
+```
+-lSDL2_mixer   # Audio mixing
+```
+
 ## Build System Overview
 
 ### build.bat
@@ -230,6 +252,7 @@ g++ ^                          # GCC compiler
   -lSDL2main ^                 # SDL2 entry point
   -lSDL2 -lSDL2_image ^        # Graphics libraries
   -lSDL2_ttf ^                 # Font rendering
+  -lSDL2_mixer ^               # Audio mixing
   -static-libgcc ^             # Static linking
   -static-libstdc++ ^          # No external runtime dependencies
   -mwindows ^                  # Windows subsystem (no console)
@@ -258,7 +281,7 @@ g++ ^                          # GCC compiler
 pacman -Q | grep SDL2
 
 # Reinstall if needed:
-pacman -S mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_ttf
+pacman -S mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_ttf mingw-w64-x86_64-SDL2_mixer
 ```
 
 ### "Permission denied" when building
